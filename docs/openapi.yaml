@@ -1,0 +1,20 @@
+paths:
+  /games:
+    post:
+      summary: Creează un joc
+      responses:
+        '201':
+          description: Game created
+
+  /games/{id}:
+    get:
+      summary: Obține joc
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
