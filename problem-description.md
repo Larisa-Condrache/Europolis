@@ -3,7 +3,7 @@
 **Proiect:** Programare Web — Joc de tip Europolis/Monopoly  
 **Etapa:** #1 - Descrierea API-ului și modelarea problemei  
 **Deadline:** 24–25 Martie 2026
- 
+
 ---
  
 ## 1. Contextul problemei
