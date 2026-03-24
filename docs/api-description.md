@@ -37,6 +37,7 @@ Endpoint-urile reprezintă punctele de acces prin care clientul interacționeaz�
 
 Endpoint Metodă Descriere
 /games POST creează un joc nou
+
 /games/{gameId} GET returnează starea curentă a jocului
 /games/{gameId} PATCH modifică starea jocului
 /games/{gameId}/players POST adaugă un jucător într-un joc
