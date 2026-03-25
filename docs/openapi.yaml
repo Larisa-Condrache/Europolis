@@ -1,20 +1,470 @@
+openapi: 3.0.4
+info:
+  title: API Europolis
+  description: Europolis Game API
+  version: 0.1.9
+
 paths:
+
+# for game management 
+
   /games:
     post:
-      summary: Creează un joc
+      summary: Creează un joc nou
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hostName, maxPlayers]
+              properties:
+                hostName:
+                  type: string
+                  example: Ana
+                maxPlayers:
+                  type: integer
+                  example: 4
       responses:
         '201':
-          description: Game created
+          description: Joc creat cu succes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameWithPlayers'
+        '400':
+          $ref: '#/components/responses/BadRequest'
 
-  /games/{id}:
+  /games/{gameId}:
     get:
-      summary: Obține joc
+      summary: Obține starea curentă a jocului
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/gameId'
       responses:
         '200':
-          description: OK
+          description: Starea curentă a jocului
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameWithPlayers'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      summary: Modifică starea jocului (ex. pornire)
+      parameters:
+        - $ref: '#/components/parameters/gameId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [active, finished]
+                  example: active
+      responses:
+        '200':
+          description: Joc actualizat
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+# for player management
+
+  /games/{gameId}/players:
+    post:
+      summary: Adaugă un jucător în joc
+      parameters:
+        - $ref: '#/components/parameters/gameId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  example: Mihai
+      responses:
+        '201':
+          description: Jucător adăugat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Player'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    get:
+      summary: Returnează lista jucătorilor din joc
+      parameters:
+        - $ref: '#/components/parameters/gameId'
+      responses:
+        '200':
+          description: Lista jucătorilor
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Player'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /players/{playerId}:
+    patch:
+      summary: Actualizează statusul unui jucător
+      parameters:
+        - $ref: '#/components/parameters/playerId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [active, bankrupt]
+                  example: bankrupt
+      responses:
+        '200':
+          description: Jucător actualizat
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+# for turns
+
+  /games/{gameId}/turns:
+    post:
+      summary: Inițiază o tură și aruncă zarurile
+      parameters:
+        - $ref: '#/components/parameters/gameId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [playerId]
+              properties:
+                playerId:
+                  type: integer
+                  example: 2
+      responses:
+        '201':
+          description: Tură inițiată
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Turn'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /games/{gameId}/turns/{turnId}:
+    get:
+      summary: Returnează detaliile unei ture
+      parameters:
+        - $ref: '#/components/parameters/gameId'
+        - $ref: '#/components/parameters/turnId'
+      responses:
+        '200':
+          description: Detalii tură
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Turn'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+
+# for actions
+
+  /games/{gameId}/turns/{turnId}/actions:
+    post:
+      summary: Execută o acțiune în cadrul turei curente
+      parameters:
+        - $ref: '#/components/parameters/gameId'
+        - $ref: '#/components/parameters/turnId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [actionType]
+              properties:
+                actionType:
+                  type: string
+                  enum: [buy_property, pay_rent, pay_tax, end_turn, use_card]
+                  example: buy_property
+      responses:
+        '200':
+          description: Acțiune executată
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Action executed successfully
+                  gameStatus:
+                    type: string
+                    example: active
+                  player:
+                    $ref: '#/components/schemas/Player'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+
+# for trades
+
+  /games/{gameId}/trades:
+    post:
+      summary: Creează o propunere de schimb
+      parameters:
+        - $ref: '#/components/parameters/gameId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fromPlayerId, toPlayerId]
+              properties:
+                fromPlayerId:
+                  type: integer
+                  example: 1
+                toPlayerId:
+                  type: integer
+                  example: 2
+                offeredMoney:
+                  type: integer
+                  example: 200
+                offeredPropertyIds:
+                  type: array
+                  items:
+                    type: integer
+                requestedMoney:
+                  type: integer
+                  example: 0
+                requestedPropertyIds:
+                  type: array
+                  items:
+                    type: integer
+                  example: [14]
+      responses:
+        '201':
+          description: Propunere creată
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tradeId:
+                    type: integer
+                    example: 3
+                  status:
+                    type: string
+                    example: pending
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /games/{gameId}/trades/{tradeId}:
+    patch:
+      summary: Acceptă sau respinge o propunere de schimb
+      parameters:
+        - $ref: '#/components/parameters/gameId'
+        - $ref: '#/components/parameters/tradeId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [accepted, rejected]
+                  example: accepted
+      responses:
+        '200':
+          description: Răspuns înregistrat
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+
+# for components
+
+components:
+
+  parameters:
+    gameId:
+      name: gameId
+      in: path
+      required: true
+      schema:
+        type: integer
+      example: 1
+    playerId:
+      name: playerId
+      in: path
+      required: true
+      schema:
+        type: integer
+      example: 2
+    turnId:
+      name: turnId
+      in: path
+      required: true
+      schema:
+        type: integer
+      example: 10
+    tradeId:
+      name: tradeId
+      in: path
+      required: true
+      schema:
+        type: integer
+      example: 3
+
+  schemas:
+    Game:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        status:
+          type: string
+          enum: [waiting, active, finished]
+          example: active
+        currentPlayerId:
+          type: integer
+          example: 2
+
+    GameWithPlayers:
+      allOf:
+        - $ref: '#/components/schemas/Game'
+        - type: object
+          properties:
+            players:
+              type: array
+              items:
+                $ref: '#/components/schemas/Player'
+
+    Player:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 2
+        name:
+          type: string
+          example: Mihai
+        balance:
+          type: integer
+          example: 1500
+        position:
+          type: integer
+          example: 0
+        status:
+          type: string
+          enum: [active, bankrupt]
+          example: active
+
+    Turn:
+      type: object
+      properties:
+        turnId:
+          type: integer
+          example: 10
+        playerId:
+          type: integer
+          example: 2
+        dice:
+          type: array
+          items:
+            type: integer
+          example: [3, 5]
+        fromPosition:
+          type: integer
+          example: 7
+        toPosition:
+          type: integer
+          example: 15
+        landedTile:
+          type: object
+          properties:
+            index:
+              type: integer
+              example: 15
+            name:
+              type: string
+              example: Brașov
+            type:
+              type: string
+              example: property
+        availableActions:
+          type: array
+          items:
+            type: string
+          example: [buy_property, end_turn]
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: NOT_YOUR_TURN
+        message:
+          type: string
+          example: Jucătorul nu poate acționa în afara turei sale.
+
+  responses:
+    BadRequest:
+      description: Cerere invalidă sau incompletă
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Acțiunea nu este permisă în contextul curent
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resursa nu a fost găsită
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: Conflict de stare
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnprocessableEntity:
+      description: Regula de business nu permite operația
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

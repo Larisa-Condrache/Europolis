@@ -134,13 +134,14 @@ Acestea sunt regulile validate de server, care generează coduri de eroare speci
 
 ```
 EUROPOLIS/
-├── server.js               # Entry point — inițializare Express
+├── server.js               # Entry point - inițializare Express
 ├── app/                    # Controllere HTTP
 ├── routes/                 # Definire endpoint-uri REST
 ├── middlewares/            # Validare, autentificare, erori
 ├── services/               # Logica de business (reguli joc)
 ├── repositories/           # Acces la baza de date
 ├── models/                 # Entități: Game, Player, Turn, Trade
+├── node_modules            # Packages
 ├── utils/                  # Funcții utilitare
 ├── public/                 # Frontend static (HTML, CSS, JS)
 │   ├── css/
