@@ -1,41 +1,47 @@
-API Description — Joc Europolis/Monopoly
+# API Description — Joc Europolis
 
-1. Scopul API-ului
+## 1. Scopul API-ului
 
-API-ul aplicației Europolis are rolul de a expune logica jocului sub forma unui set de endpoint-uri REST, care permit clienților web sau mobili să creeze jocuri, să alăture jucători, să gestioneze turele de joc și să execute acțiuni specifice regulilor Monopoly/Europolis. Prin intermediul acestui API, serverul devine autoritatea centrală asupra regulilor jocului, validând toate acțiunile jucătorilor și menținând starea consistentă a sesiunii de joc.
+API-ul aplicației Europolis are rolul de a expune logica jocului sub forma unui set de endpoint-uri REST, care permit clienților web sau mobili să creeze jocuri, să alăture jucători, să gestioneze turele de joc și să execute acțiuni specifice regulilor Europolis. Prin intermediul acestui API, serverul devine autoritatea centrală asupra regulilor jocului, validând toate acțiunile jucătorilor și menținând starea consistentă a sesiunii de joc.
 
 Separarea dintre client și server permite ca aplicația să poată fi accesată de pe mai multe dispozitive simultan și facilitează extinderea ulterioară a sistemului cu funcționalități suplimentare, precum modul spectator, salvarea jocurilor sau integrarea unor jucători automatizați.
 
-2. Principii generale de proiectare
+---
+
+## 2. Principii generale de proiectare
 
 API-ul este proiectat în stil REST și utilizează metodele HTTP standard pentru manipularea resurselor. Comunicarea dintre client și server se realizează prin mesaje în format JSON, iar serverul este responsabil pentru validarea tuturor regulilor de joc și pentru menținerea unei stări consistente a aplicației.
 
-Principalele principii urmărite în proiectarea API-ului sunt:
+**Principalele principii urmărite în proiectarea API-ului sunt:**
 
-separarea clară a resurselor principale ale sistemului;
-utilizarea consecventă a metodelor HTTP (GET, POST, PATCH);
-transmiterea datelor în format JSON;
-utilizarea codurilor de răspuns HTTP pentru semnalarea succesului sau a erorilor;
-validarea server-side a tuturor acțiunilor jucătorilor;
-posibilitatea extinderii ulterioare fără modificarea structurii de bază a API-ului. 3. Resurse API identificate
+- separarea clară a resurselor principale ale sistemului;
+- utilizarea consecventă a metodelor HTTP (GET, POST, PATCH);
+- transmiterea datelor în format JSON;
+- utilizarea codurilor de răspuns HTTP pentru semnalarea succesului sau a erorilor;
+- validarea server-side a tuturor acțiunilor jucătorilor;
+- posibilitatea extinderii ulterioare fără modificarea structurii de bază a API-ului.
+
+---
+
+## 3. Resurse API identificate
 
 În urma analizei problemei, au fost identificate următoarele resurse principale ale API-ului:
 
-Resursă Rol
-games gestionează sesiunile de joc
-players gestionează jucătorii participanți la un joc
-turns gestionează desfășurarea turelor de joc
-actions gestionează acțiunile efectuate într-o tură
-properties gestionează informațiile despre proprietăți și proprietarii acestora
-trades gestionează schimburile dintre jucători
+Resursă Rol:
+- games gestionează sesiunile de joc
+- players gestionează jucătorii participanți la un joc
+- turns gestionează desfășurarea turelor de joc
+- actions gestionează acțiunile efectuate într-o tură
+- properties gestionează informațiile despre proprietăți și proprietarii acestora
+- trades gestionează schimburile dintre jucători
 
-Resursa games reprezintă nucleul API-ului, deoarece toate celelalte resurse sunt definite în raport cu o sesiune activă de joc. Resursa players este asociată unui joc, iar resursele turns, actions și trades depind de starea curentă a acestuia.
+**Resursa games** reprezintă nucleul API-ului, deoarece toate celelalte resurse sunt definite în raport cu o sesiune activă de joc. **Resursa players** este asociată unui joc, iar **resursele turns** este asociată cu actions și trades depind de starea curentă a acestuia.
 
-4. Endpoint-uri principale
+## 4. Endpoint-uri principale
 
 Endpoint-urile reprezintă punctele de acces prin care clientul interacționează cu serverul. În tabelul următor sunt prezentate principalele endpoint-uri ale API-ului:
 
-Endpoint Metodă Descriere
+**Endpoint Metodă Descriere**
 
     /games POST creează un joc nou
     
@@ -59,17 +65,20 @@ Endpoint Metodă Descriere
     
     /games/{gameId}/trades/{tradeId} PATCH acceptă sau respinge o propunere de schimb 
 
-5. Descrierea operațiilor principale
+---
 
-5.1 Creare joc
+## 5. Descrierea operațiilor principale
 
-Endpoint: POST /games
-Scop: creează o nouă sesiune de joc.
-Actor principal: host / jucător creator.
+### 5.1 Creare joc
 
-Cererea conține informațiile minime necesare pentru inițializarea unui joc nou, cum ar fi numele jucătorului care creează sesiunea și numărul maxim de participanți. La crearea jocului, serverul inițializează starea jocului cu statusul waiting, adaugă primul jucător și pregătește structura internă a tablei și a resurselor asociate.
+- Endpoint: POST /games
+- Scop: creează o nouă sesiune de joc.
+- Actor principal: host / jucător creator.
 
-Exemplu request:
+Cererea conține informațiile minime necesare pentru inițializarea unui joc nou, cum ar fi numele jucătorului care creează sesiunea și numărul maxim de participanți.  
+La crearea jocului, serverul inițializează starea jocului cu statusul waiting, adaugă primul jucător și pregătește structura internă a tablei și a resurselor asociate.
+
+**Exemplu request:**
 
     {
     "hostName": "Ana",
@@ -77,7 +86,7 @@ Exemplu request:
     "maxPlayers": 4
     }
 
-Exemplu response:
+**Exemplu response:**
 
     {
     "id": 1,
@@ -99,22 +108,23 @@ Exemplu response:
     }
     ]
     }
-5.2 Alăturare jucător
+### 5.2 Alăturare jucător
 
 Endpoint: POST /games/{gameId}/players
 
-Scop: adaugă un jucător nou într-o sesiune existentă.
-Actor principal: jucător.
+- Scop: adaugă un jucător nou într-o sesiune existentă.
+- Actor principal: jucător.
 
-Operația permite înscrierea unui nou participant într-un joc aflat în starea waiting. Serverul validează existența jocului, numărul maxim de jucători și faptul că jocul nu a început încă.
+Operația permite înscrierea unui nou participant într-un joc aflat în starea waiting.  
+Serverul validează existența jocului, numărul maxim de jucători și faptul că jocul nu a început încă.
 
-Exemplu request:
+**Exemplu request:**
 
     {
     "name": "Mihai"
     }
 
-Exemplu response:
+**Exemplu response:**
 
     {
     "id": 2,
@@ -127,17 +137,15 @@ Exemplu response:
     
     "status": "active"
     }
-5.3 Obținere stare joc
+### 5.3 Obținere stare joc
 
-Endpoint: GET /games/{gameId}
-
-Scop: returnează starea curentă a jocului.
-
-Actor principal: orice jucător participant.
+- Endpoint: GET /games/{gameId}
+- Scop: returnează starea curentă a jocului.
+- Actor principal: orice jucător participant.
 
 Această operație permite clientului să obțină o imagine asupra stării curente a sesiunii: statusul jocului, jucătorii activi, jucătorul curent și alte date necesare pentru randarea interfeței.
 
-Exemplu response:
+**Exemplu response:**
 
     {
     "id": 1,
@@ -174,22 +182,22 @@ Exemplu response:
     ]
     }
 
-5.4 Inițiere tură
+### 5.4 Inițiere tură
 
-Endpoint: POST /games/{gameId}/turns
+- Endpoint: POST /games/{gameId}/turns
+- Scop: începe tura jucătorului curent și aruncă zarurile.
+- Actor principal: jucătorul aflat în tură.
 
-Scop: începe tura jucătorului curent și aruncă zarurile.
-Actor principal: jucătorul aflat în tură.
+Serverul validează faptul că cererea este trimisă de jucătorul curent și că zarurile nu au fost deja aruncate pentru tura activă.  
+În urma operației, serverul calculează noua poziție, identifică tipul căsuței atinse și returnează acțiunile disponibile.
 
-Serverul validează faptul că cererea este trimisă de jucătorul curent și că zarurile nu au fost deja aruncate pentru tura activă. În urma operației, serverul calculează noua poziție, identifică tipul căsuței atinse și returnează acțiunile disponibile.
-
-Exemplu request:
+**Exemplu request:**
 
     {
     "playerId": 2
     }
 
-Exemplu response:
+**Exemplu response:**
 
     {
     "turnId": 10,
@@ -222,22 +230,22 @@ Exemplu response:
     
     }
 
-5.5 Executare acțiune
+### 5.5 Executare acțiune
 
-Endpoint: POST /games/{gameId}/turns/{turnId}/actions
+- Endpoint: POST /games/{gameId}/turns/{turnId}/actions
+- Scop: execută o acțiune disponibilă în cadrul turei curente.
+- Actor principal: jucătorul aflat în tură.
 
-Scop: execută o acțiune disponibilă în cadrul turei curente.
-Actor principal: jucătorul aflat în tură.
+Prin acest endpoint sunt executate acțiuni precum cumpărarea unei proprietăți, plata chiriei, încheierea turei sau utilizarea unei cărți speciale.  
+Serverul validează disponibilitatea acțiunii și regulile specifice asociate.
 
-Prin acest endpoint sunt executate acțiuni precum cumpărarea unei proprietăți, plata chiriei, încheierea turei sau utilizarea unei cărți speciale. Serverul validează disponibilitatea acțiunii și regulile specifice asociate.
-
-Exemplu request:
+**Exemplu request:**
 
     {
     "actionType": "buy_property"
     }
 
-Exemplu response:
+**Exemplu response:**
 
     {
     "message": "Action executed successfully",
@@ -253,16 +261,16 @@ Exemplu response:
     }
     }
 
-5.6 Propunere trade
+### 5.6 Propunere trade
 
-Endpoint: POST /games/{gameId}/trades
+- Endpoint: POST /games/{gameId}/trades
+- Scop: creează o propunere de schimb între doi jucători.
+- Actor principal: jucător.
 
-Scop: creează o propunere de schimb între doi jucători.
-Actor principal: jucător.
+Această operație permite inițierea unei negocieri care poate conține bani, proprietăți sau ambele.  
+Serverul verifică existența celor doi jucători și dreptul de proprietate asupra bunurilor oferite în schimb.
 
-Această operație permite inițierea unei negocieri care poate conține bani, proprietăți sau ambele. Serverul verifică existența celor doi jucători și dreptul de proprietate asupra bunurilor oferite în schimb.
-
-Exemplu request:
+**Exemplu request:**
 
     {
     
@@ -276,7 +284,7 @@ Exemplu request:
     
     }
 
-Exemplu response:
+**Exemplu response:**
 
     {
     "tradeId": 3,
@@ -285,7 +293,9 @@ Exemplu response:
     
     }
 
-6. Modele de mesaje
+---
+
+## 6. Modele de mesaje
 
 Pentru comunicarea dintre client și server, API-ul utilizează mesaje JSON standardizate. Principalele tipuri de obiecte sunt următoarele:
 
@@ -351,161 +361,135 @@ Pentru comunicarea dintre client și server, API-ul utilizează mesaje JSON stan
     
     }
 
-7. Coduri de răspuns
+---
+
+## 7. Coduri de răspuns
 
 API-ul utilizează coduri HTTP standard pentru a semnaliza rezultatul operațiilor efectuate:
 
-Cod Semnificație
+### Cod Semnificație
 
-200 OK operația a fost procesată cu succes
+- 200 OK operația a fost procesată cu succes
 
-201 Created o resursă nouă a fost creată
+- 201 Created o resursă nouă a fost creată
 
-400 Bad Request cererea conține date invalide sau incomplete
+- 400 Bad Request cererea conține date invalide sau incomplete
 
-403 Forbidden acțiunea nu este permisă în contextul curent
+- 403 Forbidden acțiunea nu este permisă în contextul curent
 
-404 Not Found resursa solicitată nu există
+- 404 Not Found resursa solicitată nu există
 
-409 Conflict există un conflict de stare
+- 409 Conflict există un conflict de stare
 
-422 Unprocessable Entity regula de business nu permite executarea operației
+- 422 Unprocessable Entity regula de business nu permite executarea operației
 
 Codurile de răspuns sunt utilizate pentru a diferenția erorile de sintaxă, erorile de permisiune și încălcările regulilor specifice jocului.
 
-8. Reguli de business asociate API-ului
+---
 
-Serverul validează centralizat regulile jocului înainte de a executa orice operație expusă prin API. Cele mai importante reguli sunt:
+## 8. Reguli de business asociate API-ului
 
-doar jucătorul curent poate iniția o tură sau executa acțiuni în cadrul acesteia;
-un joc aflat în starea active nu mai poate accepta jucători noi;
-o proprietate deja deținută nu poate fi cumpărată din nou;
-o acțiune poate fi executată doar dacă se află în lista de acțiuni disponibile pentru tura curentă;
-construirea de case sau hoteluri este permisă doar dacă jucătorul deține monopol complet pe grupul respectiv;
-dacă un jucător nu poate achita o obligație financiară, statusul său poate deveni bankrupt;
-schimburile între jucători pot fi validate doar dacă bunurile oferite aparțin inițiatorului.
+Serverul validează centralizat regulile jocului înainte de a executa orice operație expusă prin API.
+
+**Cele mai importante reguli sunt:**
+
+1. doar jucătorul curent poate iniția o tură sau executa acțiuni în cadrul acesteia;
+2. un joc aflat în starea active nu mai poate accepta jucători noi;
+3. o proprietate deja deținută nu poate fi cumpărată din nou;
+4. o acțiune poate fi executată doar dacă se află în lista de acțiuni disponibile pentru tura curentă;
+5. construirea de case sau hoteluri este permisă doar dacă jucătorul deține monopol complet pe grupul respectiv;
+6. dacă un jucător nu poate achita o obligație financiară, statusul său poate deveni bankrupt;
+7. schimburile între jucători pot fi validate doar dacă bunurile oferite aparțin inițiatorului.
 
 Aceste reguli sunt reflectate în răspunsurile API prin coduri HTTP adecvate și mesaje explicite de eroare.
 
-9. Use-Cases
+---
 
-UC1 – Creare joc
+## 9. Use-Cases
 
-Actor principal: Host
+### UC1 – Creare joc
 
-Scop: Inițierea unei sesiuni noi de joc.
+**Actor principal:** Host  
+**Scop:** Inițierea unei sesiuni noi de joc.  
+**Descriere:** Host trimite o cerere de creare a unui joc nou. Sistemul creează sesiunea cu status waiting, inițializează tabla și îl înregistrează pe Host ca prim jucător.  
+**Postcondiție:** Jocul există și este pregătit pentru alăturarea altor jucători.
 
-Descriere:
-Host trimite o cerere de creare a unui joc nou. Sistemul creează sesiunea cu status waiting, inițializează tabla și îl înregistrează pe Host ca prim jucător.
-Postcondiție: Jocul există și este pregătit pentru alăturarea altor jucători.
 
-UC2 – Alăturare jucător
+### UC2 – Alăturare jucător
 
-Actor principal: Jucător
+**Actor principal:** Jucător  
+**Scop:** Intrarea într-o sesiune existentă.  
+**Descriere:** Un jucător se înscrie într-un joc aflat în starea waiting. Sistemul verifică disponibilitatea locurilor și adaugă jucătorul în listă.  
+**Postcondiție:** Jucătorul este participant activ în joc.
 
-Scop: Intrarea într-o sesiune existentă.
 
-Descriere:
-Un jucător se înscrie într-un joc aflat în starea waiting. Sistemul verifică disponibilitatea locurilor și adaugă jucătorul în listă.
-Postcondiție: Jucătorul este participant activ în joc.
+### UC3 – Vizualizare stare joc
 
-UC3 – Vizualizare stare joc
+**Actor principal:** Jucător  
+**Scop:** Obținerea informațiilor actuale despre joc.  
+**Descriere:** Jucătorul solicită starea curentă a jocului (status, jucători, jucătorul curent, poziții, solduri).
 
-Actor principal: Jucător
 
-Scop: Obținerea informațiilor actuale despre joc.
+### UC4 – Inițiere tură
 
-Descriere:
-Jucătorul solicită starea curentă a jocului (status, jucători, jucătorul curent, poziții, solduri).
+**Actor principal:** Jucătorul curent  
+**Scop:** Începerea turei de joc.  
+**Descriere:** Jucătorul curent inițiază tura. Sistemul aruncă zarurile, calculează noua poziție și determină tipul căsuței pe care a ajuns.  
+**Postcondiție:** Sunt generate acțiunile disponibile pentru tură.
 
-UC4 – Inițiere tură
+### UC5 – Executare acțiune
 
-Actor principal: Jucătorul curent
+**Actor principal:** Jucătorul curent  
+**Actor secundar:** Banca (în cazul plăților)  
+**Scop:** Executarea unei acțiuni permise în tură.  
+**Descriere:** Jucătorul execută o acțiune disponibilă (cumpărare proprietate, plată chirie, plată taxă, încheiere tură etc.). Dacă acțiunea implică o tranzacție financiară, Banca procesează plata.  
+**Postcondiție:** Starea jocului este actualizată.
 
-Scop: Începerea turei de joc.
 
-Descriere:
-Jucătorul curent inițiază tura. Sistemul aruncă zarurile, calculează noua poziție și determină tipul căsuței pe care a ajuns.
-Postcondiție: Sunt generate acțiunile disponibile pentru tură.
+### UC6 – Propunere trade
 
-UC5 – Executare acțiune
+**Actor principal:** Jucător  
+**Scop:** Inițierea unui schimb între doi jucători.  
+**Descriere:** Un jucător creează o ofertă de schimb care poate include bani și/sau proprietăți.
 
-Actor principal: Jucătorul curent
+### UC7 – Răspuns trade
 
-Actor secundar: Banca (în cazul plăților)
+**Actor principal:** Jucător (destinatar)  
+**Scop:** Acceptarea sau respingerea unei oferte.  
+**Descriere:** Jucătorul care primește oferta decide dacă o acceptă sau o respinge. Dacă este acceptată, proprietățile și banii sunt transferați.
 
-Scop: Executarea unei acțiuni permise în tură.
+### UC8 – Declarare faliment
 
-Descriere:
-Jucătorul execută o acțiune disponibilă (cumpărare proprietate, plată chirie, plată taxă, încheiere tură etc.).
-Dacă acțiunea implică o tranzacție financiară, Banca procesează plata.
-Postcondiție: Starea jocului este actualizată.
+**Actor principal:** Banca  
+**Scop:** Eliminarea unui jucător insolvabil.  
+**Descriere:** Dacă un jucător nu poate achita o obligație financiară, Banca îl declară bankrupt. Proprietățile sunt redistribuite conform regulilor.  
+**Postcondiție:** Jucătorul este eliminat din joc.
 
-UC6 – Propunere trade
+### UC9 – Finalizare joc
 
-Actor principal: Jucător
+**Actor principal:** Host / Banca  
+**Scop:** Încheierea oficială a sesiunii.  
+**Descriere:** Jocul este finalizat fie manual (de Host), fie automat când rămâne un singur jucător activ. Se calculează clasamentul final și se marchează jocul ca finished.
 
-Scop: Inițierea unui schimb între doi jucători.
-Descriere:
-Un jucător creează o ofertă de schimb care poate include bani și/sau proprietăți.
+### UC10 – Contractare împrumut
 
-UC7 – Răspuns trade
+**Actor principal:** Jucător  
+**Actor secundar:** Banca  
+**Scop:** Obținerea unei sume de bani de la Bancă.  
+**Descriere:** Jucătorul solicită un împrumut pentru a putea efectua o achiziție sau a acoperi o obligație financiară. Banca acordă suma și înregistrează datoria asociată.  
+**Postcondiție:** Soldul jucătorului crește, iar datoria este înregistrată.
 
-Actor principal: Jucător (destinatar)
-
-Scop: Acceptarea sau respingerea unei oferte.
-
-Descriere:
-Jucătorul care primește oferta decide dacă o acceptă sau o respinge.
-Dacă este acceptată, proprietățile și banii sunt transferați.
-
-UC8 – Declarare faliment
-
-Actor principal: Banca
-
-Scop: Eliminarea unui jucător insolvabil.
-
-Descriere:
-Dacă un jucător nu poate achita o obligație financiară, Banca îl declară bankrupt. Proprietățile sunt redistribuite conform regulilor.
-Postcondiție: Jucătorul este eliminat din joc.
-
-UC9 – Finalizare joc
-
-Actor principal: Host / Banca
-
-Scop: Încheierea oficială a sesiunii.
-
-Descriere:
-Jocul este finalizat fie manual (de Host), fie automat când rămâne un singur jucător activ.
-Se calculează clasamentul final și se marchează jocul ca finished.
-
-UC10 – Contractare împrumut
-
-Actor principal: Jucător
-
-Actor secundar: Banca
-
-Scop: Obținerea unei sume de bani de la Bancă.
-
-Descriere:
-Jucătorul solicită un împrumut pentru a putea efectua o achiziție sau a acoperi o obligație financiară.
-Banca acordă suma și înregistrează datoria asociată.
-Postcondiție: Soldul jucătorului crește, iar datoria este înregistrată.
-
-11. Observații privind extinderea ulterioară
+## 11. Observații privind extinderea ulterioară
 
 Structura propusă pentru API permite extinderea ulterioară a aplicației prin adăugarea unor funcționalități precum:
 
-autentificare și conturi persistente de utilizator;
-
-modul spectator;
-
-notificări în timp real prin WebSocket;
-
-salvarea și reluarea jocurilor;
-
-suport pentru variante alternative de tablă;
-
-integrarea unor jucători automatizați de tip AI.
+- autentificare și conturi persistente de utilizator;
+- modul spectator;
+- notificări în timp real prin WebSocket;
+- salvarea și reluarea jocurilor;
+- suport pentru variante alternative de tablă;
+- integrarea unor jucători automatizați de tip AI.
 
 Aceste extinderi pot fi adăugate fără modificarea fundamentală a resurselor deja identificate, ceea ce confirmă flexibilitatea modelului API propus.
+
+---

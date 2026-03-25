@@ -33,9 +33,9 @@ Sistemul are trei componente principale:
 
 | Componentă | Responsabilitate |
 |---|---|
-| **Client** | Interfața vizuală (browser/mobil). Afișează tabla, trimite acțiunile jucătorului, redă starea curentă. |
+| **Client** | Interfața vizuală. Afișează tabla, trimite acțiunile jucătorului, redă starea curentă. |
 | **API Server** | Nucleul aplicației. Expune endpoint-uri REST, validează acțiunile conform regulilor, actualizează și returnează starea. |
-| **Baza de date** | Persistă starea jocurilor (în curs, finalizate), profilurile jucătorilor și istoricul turelor. |
+| **Baza de date** | Persistă starea jocurilor, profilurile jucătorilor și istoricul turelor. |
 
 Comunicarea este **sincronă prin REST** pentru acțiunile jucătorilor. Opțional, notificările în timp real (ex: alt jucător a cumpărat o proprietate) pot fi trimise prin **WebSocket** sau **polling** periodic.
 
@@ -50,25 +50,25 @@ Comunicarea este **sincronă prin REST** pentru acțiunile jucătorilor. Opțion
 | `Game` | O sesiune de joc; are o stare (waiting / active / finished), o tablă, jucători și o tură curentă. |
 | `Player` | Un participant; are un sold, o poziție pe tablă, proprietăți deținute, datorii active și un status (activ / falimentar). |
 | `Board` | Tabla de joc; conține 40 de căsuțe aranjate circular. |
-| `Tile` | O căsuță a tablei (proprietate, taxă, șansă, comunitate, închisoare, START etc.). |
+| `Tile` | O căsuță a tablei (proprietate, taxă, șansă, comunitate, închisoare, START, etc.). |
 | `Property` | Un tip de `Tile` cumpărabil; aparține unui grup de culoare, are prețuri de chirie pe niveluri și poate fi ipotecată. |
 | `Building` | Casă sau hotel construit pe o proprietate. |
 | `Trade` | O tranzacție de negociere între doi jucători (proprietăți + bani). |
 | `Card` | O carte de șansă sau comunitate; are un efect (mișcare, plată, colectare, ieșire închisoare). |
 | `Turn` | O tură a unui jucător; conține zarurile aruncate, acțiunile disponibile și acțiunea executată. |
 | `Bank` | Entitate singleton per joc; gestionează stocul de clădiri, banii disponibili și împrumuturile acordate. |
-| `Loan` | O datorie înregistrată între un jucător și Bancă; conține suma împrumutată și statusul rambursării. |
+| `Loan` | O datorie înregistrată între un jucător și Bancă; conține suma împrumutată din vânzarea unei propietăți. |
 
 ### 3.2 Relații cheie
 
 - Un `Game` conține mai mulți `Player` și o singură `Board`
-- O `Board` conține exact 40 de `Tile`-uri
+- Un `Board` conține exact 40 de `Tile`-uri
 - Un `Player` poate deține zero sau mai multe `Property`
 - O `Property` poate avea zero sau mai multe `Building` (max 4 case sau 1 hotel)
 - O `Property` poate fi ipotecată (`mortgaged: bool`), caz în care nu generează chirie
 - Un `Game` are o succesiune de `Turn`-uri
-- O `Turn` aparține unui singur `Player`
-- Un `Player` poate avea zero sau mai multe `Loan`-uri active
+- Un `Turn` aparține unui singur `Player`
+- Un `Player` poate ipoteca una sau mai multe "Property" pentru un sau mai multe `Loan`-uri
 
 ---
 
@@ -85,7 +85,7 @@ Comunicarea este **sincronă prin REST** pentru acțiunile jucătorilor. Opțion
 1. Jucătorul curent aruncă zarurile (`POST /games/{id}/turns`).
 2. Serverul calculează noua poziție și determină acțiunea declanșată pe căsuța respectivă.
 3. Jucătorul execută acțiunea disponibilă (cumpărare, plată chirie, pescuire carte etc.) prin `POST /games/{id}/turns/{n}/actions`.
-4. Opțional, în afara turei proprii, jucătorii pot iniția schimburi (`POST /games/{id}/trades`) sau pot contracta împrumuturi de la Bancă.
+4. Opțional, în afara turei proprii, jucătorii pot iniția schimburi (`POST /games/{id}/trades`) de la Bancă.
 5. Tura se încheie și trece la următorul jucător.
 
 ### Faza 3 — Finalizare
@@ -108,11 +108,8 @@ Acestea sunt regulile validate de server, care generează coduri de eroare speci
 | Maximum 4 case sau 1 hotel per proprietate | `422` | Limita de clădiri depășită |
 | Zarurile se aruncă o singură dată per tură | `409` | Excepție: dublu permite tură nouă |
 | Nu poți ipoteca o proprietate cu clădiri pe ea | `422` | Clădirile trebuie vândute înainte |
-| Jucătorul în închisoare — condiții de eliberare | `422` | Plată, carte specială sau dublu |
+| Jucătorul în închisoare - condiții de eliberare | `422` | Plată, carte specială sau dublu |
 | Schimburile sunt valide doar pentru bunuri proprii | `403` | Inițiatorul nu deține bunurile oferite |
-| Un împrumut poate fi contractat doar dacă jucătorul este activ | `403` | Jucătorul falimentar nu poate împrumuta |
-
-> **Notă privind licitația:** Regula de licitație automată (declanșată când nimeni nu cumpără la preț fix) este recunoscută ca flux alternativ, însă este considerată **out of scope pentru Etapa 1**. Va fi abordată într-o etapă ulterioară.
 
 ---
 
@@ -120,7 +117,7 @@ Acestea sunt regulile validate de server, care generează coduri de eroare speci
 
 | Actor | Rol |
 |---|---|
-| **Jucător** | Participare joc, executare acțiuni în tură proprie, inițiere trade-uri, contractare împrumuturi |
+| **Jucător** | Participare joc, executare acțiuni în tură proprie, inițiere trade-uri |
 | **Host / Creator joc** | Inițiere joc, configurare, pornire, expulzare jucători |
 | **Bancă (sistem)** | Gestionare automată tranzacții, validare reguli, distribuire cărți, acordare împrumuturi |
 | **Spectator** *(opțional)* | Vizualizare stare joc, fără acțiuni de scriere |
@@ -133,24 +130,41 @@ Acestea sunt regulile validate de server, care generează coduri de eroare speci
 
 ---
 
-## 8. Ce este în afara scopului (out of scope) — Etapa 1
+## 8. Arhitectura
+
+```
+EUROPOLIS/
+├── server.js               # Entry point — inițializare Express
+├── app/                    # Controllere HTTP
+├── routes/                 # Definire endpoint-uri REST
+├── middlewares/            # Validare, autentificare, erori
+├── services/               # Logica de business (reguli joc)
+├── repositories/           # Acces la baza de date
+├── models/                 # Entități: Game, Player, Turn, Trade
+├── utils/                  # Funcții utilitare
+├── public/                 # Frontend static (HTML, CSS, JS)
+│   ├── css/
+│   ├── js/
+│   └── images/
+├── views/                  # Template-uri HTML
+├── tests/                  # Teste unitare / integrare
+├── docs/                   # Documentație
+│   ├── api-description.md
+│   ├── problem-description.md
+│   ├── openapi.yaml
+│   └── PW_Europolis.jpg
+├── .env                    # Variabile de mediu
+└── package.json
+```
+
+---
+
+## 9. Ce este în afara scopului (out of scope) — Etapa 1
 
 - Autentificare și conturi de utilizator (ID simplu per jucător)
 - Salvarea și reluarea jocurilor întrerupte
 - Modul spectator în timp real (WebSocket)
 - Variante de tablă personalizate (doar tabla standard 40 căsuțe)
 - Logică AI pentru jucători automatizați
-- Sistem de licitație automată pentru proprietăți necumpărate
 
 ---
-
-## 9. Livrabile asociate acestui document
-
-| Livrabil | Format | Status |
-|---|---|---|
-| Document descriere problemă | `.md` (acest fișier) | ✓ |
-| Document descriere API | `.md` | ✓ |
-| Diagramă use-case | `.png` | ✓ |
-| Diagramă arhitectură (C4 nivel 1–2) | `.png` / Mermaid | TODO |
-| Diagramă entități (ERD) | Mermaid / draw.io | TODO |
-| Specificație OpenAPI inițială | `.yaml` | TODO |
