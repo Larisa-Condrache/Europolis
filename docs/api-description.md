@@ -471,13 +471,13 @@ Aceste reguli sunt reflectate în răspunsurile API prin coduri HTTP adecvate ș
 **Scop:** Încheierea oficială a sesiunii.  
 **Descriere:** Jocul este finalizat fie manual (de Host), fie automat când rămâne un singur jucător activ. Se calculează clasamentul final și se marchează jocul ca finished.
 
-### UC10 – Contractare împrumut
+### UC10 – Ipotecare
 
 **Actor principal:** Jucător  
 **Actor secundar:** Banca  
 **Scop:** Obținerea unei sume de bani de la Bancă.  
-**Descriere:** Jucătorul solicită un împrumut pentru a putea efectua o achiziție sau a acoperi o obligație financiară. Banca acordă suma și înregistrează datoria asociată.  
-**Postcondiție:** Soldul jucătorului crește, iar datoria este înregistrată.
+**Descriere:** Jucătorul ipotecă o propietate la bancă pentru a putea efectua o achiziție sau a acoperi o obligație financiară. Banca acordă suma și propietatea devine liberă.  
+**Postcondiție:** Soldul jucătorului crește, iar propietatea devine liberă să fie cumărată din nou.
 
 ## 11. Observații privind extinderea ulterioară
 
