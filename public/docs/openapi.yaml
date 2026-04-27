@@ -2,15 +2,18 @@ openapi: 3.0.3
 info:
   title: API Europolis
   description: Europolis Game API
-  version: 0.1.9
+  version: 0.2.0
 
 paths:
 
-# for game management 
+# ─────────────────────────────────────────
+# GAMES
+# ─────────────────────────────────────────
 
   /games:
     post:
       summary: Creează un joc nou
+      tags: [Games]
       requestBody:
         required: true
         content:
@@ -24,6 +27,8 @@ paths:
                   example: Ana
                 maxPlayers:
                   type: integer
+                  minimum: 2
+                  maximum: 6
                   example: 4
       responses:
         '201':
@@ -38,6 +43,7 @@ paths:
   /games/{gameId}:
     get:
       summary: Obține starea curentă a jocului
+      tags: [Games]
       parameters:
         - $ref: '#/components/parameters/gameId'
       responses:
@@ -50,7 +56,8 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
     patch:
-      summary: Modifică starea jocului (ex. pornire)
+      summary: Modifică starea jocului (ex. pornire, finalizare)
+      tags: [Games]
       parameters:
         - $ref: '#/components/parameters/gameId'
       requestBody:
@@ -67,16 +74,23 @@ paths:
       responses:
         '200':
           description: Joc actualizat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Game'
         '400':
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
 
-# for player management
+# ─────────────────────────────────────────
+# PLAYERS
+# ─────────────────────────────────────────
 
   /games/{gameId}/players:
     post:
       summary: Adaugă un jucător în joc
+      tags: [Players]
       parameters:
         - $ref: '#/components/parameters/gameId'
       requestBody:
@@ -103,6 +117,7 @@ paths:
           $ref: '#/components/responses/Conflict'
     get:
       summary: Returnează lista jucătorilor din joc
+      tags: [Players]
       parameters:
         - $ref: '#/components/parameters/gameId'
       responses:
@@ -117,9 +132,91 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /games/{gameId}/players/{playerId}:
+    get:
+      summary: Returnează detaliile unui jucător din joc
+      tags: [Players]
+      parameters:
+        - $ref: '#/components/parameters/gameId'
+        - $ref: '#/components/parameters/playerId'
+      responses:
+        '200':
+          description: Detalii jucător
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerDetailed'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Expulzează un jucător din joc (doar Host, înainte de pornire)
+      tags: [Players]
+      parameters:
+        - $ref: '#/components/parameters/gameId'
+        - $ref: '#/components/parameters/playerId'
+      responses:
+        '204':
+          description: Jucător eliminat cu succes
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /games/{gameId}/players/{playerId}/leave:
+    post:
+      summary: Jucătorul iese voluntar din joc
+      description: >
+        Un jucător activ poate părăsi jocul în orice moment. 
+        Dacă jocul este în starea `waiting`, jucătorul este pur și simplu eliminat din listă.
+        Dacă jocul este `active`, jucătorul este marcat `bankrupt`, proprietățile sale sunt
+        redistribuite băncii, iar jocul continuă. Dacă rămâne un singur jucător activ,
+        jocul se termină automat (status `finished`).
+      tags: [Players]
+      parameters:
+        - $ref: '#/components/parameters/gameId'
+        - $ref: '#/components/parameters/playerId'
+      responses:
+        '200':
+          description: Jucătorul a ieșit din joc
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Jucătorul a părăsit jocul.
+                  gameStatus:
+                    type: string
+                    enum: [waiting, active, finished]
+                    example: active
+                  game:
+                    $ref: '#/components/schemas/GameWithPlayers'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
   /players/{playerId}:
+    get:
+      summary: Returnează detaliile unui jucător după id
+      tags: [Players]
+      parameters:
+        - $ref: '#/components/parameters/playerId'
+      responses:
+        '200':
+          description: Detalii jucător
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerDetailed'
+        '404':
+          $ref: '#/components/responses/NotFound'
     patch:
-      summary: Actualizează statusul unui jucător
+      summary: Actualizează statusul unui jucător (ex. faliment)
+      tags: [Players]
       parameters:
         - $ref: '#/components/parameters/playerId'
       requestBody:
@@ -136,14 +233,44 @@ paths:
       responses:
         '200':
           description: Jucător actualizat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Player'
         '404':
           $ref: '#/components/responses/NotFound'
 
-# for turns
+# ─────────────────────────────────────────
+# TURNS
+# ─────────────────────────────────────────
 
   /games/{gameId}/turns:
+    get:
+      summary: Returnează lista turelor dintr-un joc
+      tags: [Turns]
+      parameters:
+        - $ref: '#/components/parameters/gameId'
+        - name: playerId
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Filtrează turele după jucător
+          example: 2
+      responses:
+        '200':
+          description: Lista turelor
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Turn'
+        '404':
+          $ref: '#/components/responses/NotFound'
     post:
       summary: Inițiază o tură și aruncă zarurile
+      tags: [Turns]
       parameters:
         - $ref: '#/components/parameters/gameId'
       requestBody:
@@ -172,6 +299,7 @@ paths:
   /games/{gameId}/turns/{turnId}:
     get:
       summary: Returnează detaliile unei ture
+      tags: [Turns]
       parameters:
         - $ref: '#/components/parameters/gameId'
         - $ref: '#/components/parameters/turnId'
@@ -185,12 +313,31 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-
-# for actions
+# ─────────────────────────────────────────
+# ACTIONS
+# ─────────────────────────────────────────
 
   /games/{gameId}/turns/{turnId}/actions:
+    get:
+      summary: Returnează acțiunile executate într-o tură
+      tags: [Actions]
+      parameters:
+        - $ref: '#/components/parameters/gameId'
+        - $ref: '#/components/parameters/turnId'
+      responses:
+        '200':
+          description: Lista acțiunilor din tură
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActionRecord'
+        '404':
+          $ref: '#/components/responses/NotFound'
     post:
       summary: Execută o acțiune în cadrul turei curente
+      tags: [Actions]
       parameters:
         - $ref: '#/components/parameters/gameId'
         - $ref: '#/components/parameters/turnId'
@@ -204,35 +351,206 @@ paths:
               properties:
                 actionType:
                   type: string
-                  enum: [buy_property, pay_rent, pay_tax, end_turn, use_card]
+                  enum: [buy_property, pay_rent, pay_tax, end_turn, use_card, mortgage_property, unmortgage_property, build_house, build_hotel, declare_bankruptcy]
                   example: buy_property
+                propertyId:
+                  type: integer
+                  description: Necesar pentru buy_property, mortgage_property, unmortgage_property, build_house, build_hotel
+                  example: 15
       responses:
         '200':
           description: Acțiune executată
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: Action executed successfully
-                  gameStatus:
-                    type: string
-                    example: active
-                  player:
-                    $ref: '#/components/schemas/Player'
+                $ref: '#/components/schemas/ActionResult'
         '403':
           $ref: '#/components/responses/Forbidden'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
 
+# ─────────────────────────────────────────
+# PROPERTIES
+# ─────────────────────────────────────────
 
-# for trades
+  /games/{gameId}/properties:
+    get:
+      summary: Returnează toate proprietățile de pe tabla de joc
+      tags: [Properties]
+      parameters:
+        - $ref: '#/components/parameters/gameId'
+        - name: ownerId
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Filtrează după proprietar
+          example: 2
+        - name: group
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filtrează după grupul de culoare
+          example: blue
+      responses:
+        '200':
+          description: Lista proprietăților
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Property'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /games/{gameId}/properties/{propertyId}:
+    get:
+      summary: Returnează detaliile unei proprietăți
+      tags: [Properties]
+      parameters:
+        - $ref: '#/components/parameters/gameId'
+        - $ref: '#/components/parameters/propertyId'
+      responses:
+        '200':
+          description: Detalii proprietate
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PropertyDetailed'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      summary: Actualizează starea unei proprietăți (ipotecare/deipotecare manuală)
+      tags: [Properties]
+      parameters:
+        - $ref: '#/components/parameters/gameId'
+        - $ref: '#/components/parameters/propertyId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mortgaged:
+                  type: boolean
+                  example: true
+      responses:
+        '200':
+          description: Proprietate actualizată
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Property'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /games/{gameId}/properties/{propertyId}/buildings:
+    get:
+      summary: Returnează clădirile de pe o proprietate
+      tags: [Properties]
+      parameters:
+        - $ref: '#/components/parameters/gameId'
+        - $ref: '#/components/parameters/propertyId'
+      responses:
+        '200':
+          description: Lista clădirilor
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Building'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      summary: Construiește o casă sau hotel pe o proprietate
+      tags: [Properties]
+      parameters:
+        - $ref: '#/components/parameters/gameId'
+        - $ref: '#/components/parameters/propertyId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type]
+              properties:
+                type:
+                  type: string
+                  enum: [house, hotel]
+                  example: house
+      responses:
+        '201':
+          description: Clădire construită
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Building'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /games/{gameId}/properties/{propertyId}/buildings/{buildingId}:
+    delete:
+      summary: Demolează o clădire de pe o proprietate
+      tags: [Properties]
+      parameters:
+        - $ref: '#/components/parameters/gameId'
+        - $ref: '#/components/parameters/propertyId'
+        - $ref: '#/components/parameters/buildingId'
+      responses:
+        '204':
+          description: Clădire demolată, banii returnați
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+# ─────────────────────────────────────────
+# TRADES
+# ─────────────────────────────────────────
 
   /games/{gameId}/trades:
+    get:
+      summary: Returnează lista propunerilor de schimb dintr-un joc
+      tags: [Trades]
+      parameters:
+        - $ref: '#/components/parameters/gameId'
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, accepted, rejected]
+          description: Filtrează după status
+          example: pending
+      responses:
+        '200':
+          description: Lista trade-urilor
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Trade'
+        '404':
+          $ref: '#/components/responses/NotFound'
     post:
       summary: Creează o propunere de schimb
+      tags: [Trades]
       parameters:
         - $ref: '#/components/parameters/gameId'
       requestBody:
@@ -251,13 +569,16 @@ paths:
                   example: 2
                 offeredMoney:
                   type: integer
+                  minimum: 0
                   example: 200
                 offeredPropertyIds:
                   type: array
                   items:
                     type: integer
+                  example: []
                 requestedMoney:
                   type: integer
+                  minimum: 0
                   example: 0
                 requestedPropertyIds:
                   type: array
@@ -270,22 +591,31 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  tradeId:
-                    type: integer
-                    example: 3
-                  status:
-                    type: string
-                    example: pending
+                $ref: '#/components/schemas/Trade'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
 
   /games/{gameId}/trades/{tradeId}:
+    get:
+      summary: Returnează detaliile unei propuneri de schimb
+      tags: [Trades]
+      parameters:
+        - $ref: '#/components/parameters/gameId'
+        - $ref: '#/components/parameters/tradeId'
+      responses:
+        '200':
+          description: Detalii trade
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trade'
+        '404':
+          $ref: '#/components/responses/NotFound'
     patch:
       summary: Acceptă sau respinge o propunere de schimb
+      tags: [Trades]
       parameters:
         - $ref: '#/components/parameters/gameId'
         - $ref: '#/components/parameters/tradeId'
@@ -304,13 +634,32 @@ paths:
       responses:
         '200':
           description: Răspuns înregistrat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trade'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Anulează o propunere de schimb (doar inițiatorul, cât timp e pending)
+      tags: [Trades]
+      parameters:
+        - $ref: '#/components/parameters/gameId'
+        - $ref: '#/components/parameters/tradeId'
+      responses:
+        '204':
+          description: Propunere anulată
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
 
 
-# for components
+# ─────────────────────────────────────────
+# COMPONENTS
+# ─────────────────────────────────────────
 
 components:
 
@@ -343,8 +692,23 @@ components:
       schema:
         type: integer
       example: 3
+    propertyId:
+      name: propertyId
+      in: path
+      required: true
+      schema:
+        type: integer
+      example: 15
+    buildingId:
+      name: buildingId
+      in: path
+      required: true
+      schema:
+        type: integer
+      example: 7
 
   schemas:
+
     Game:
       type: object
       properties:
@@ -357,7 +721,15 @@ components:
           example: active
         currentPlayerId:
           type: integer
+          nullable: true
           example: 2
+        maxPlayers:
+          type: integer
+          example: 4
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-03-15T10:00:00Z"
 
     GameWithPlayers:
       allOf:
@@ -388,6 +760,26 @@ components:
           type: string
           enum: [active, bankrupt]
           example: active
+        isInJail:
+          type: boolean
+          example: false
+        jailTurnsLeft:
+          type: integer
+          example: 0
+
+    PlayerDetailed:
+      allOf:
+        - $ref: '#/components/schemas/Player'
+        - type: object
+          properties:
+            properties:
+              type: array
+              items:
+                $ref: '#/components/schemas/Property'
+            getOutOfJailCards:
+              type: integer
+              description: Numărul de cărți „Ieșire din închisoare" deținute
+              example: 0
 
     Turn:
       type: object
@@ -403,6 +795,9 @@ components:
           items:
             type: integer
           example: [3, 5]
+        isDouble:
+          type: boolean
+          example: false
         fromPosition:
           type: integer
           example: 7
@@ -410,22 +805,173 @@ components:
           type: integer
           example: 15
         landedTile:
-          type: object
-          properties:
-            index:
-              type: integer
-              example: 15
-            name:
-              type: string
-              example: Brașov
-            type:
-              type: string
-              example: property
+          $ref: '#/components/schemas/Tile'
         availableActions:
           type: array
           items:
             type: string
           example: [buy_property, end_turn]
+        status:
+          type: string
+          enum: [in_progress, completed]
+          example: in_progress
+
+    Tile:
+      type: object
+      properties:
+        index:
+          type: integer
+          example: 15
+        name:
+          type: string
+          example: Brașov
+        type:
+          type: string
+          enum: [property, tax, chance, community_chest, jail, go_to_jail, start, free_parking, railroad, utility]
+          example: property
+
+    Property:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 15
+        tileIndex:
+          type: integer
+          example: 15
+        name:
+          type: string
+          example: Brașov
+        group:
+          type: string
+          example: red
+        price:
+          type: integer
+          example: 200
+        rent:
+          type: array
+          items:
+            type: integer
+          description: Chirii pentru 0–4 case și hotel
+          example: [16, 80, 220, 600, 800, 1000]
+        houseCost:
+          type: integer
+          example: 150
+        hotelCost:
+          type: integer
+          example: 150
+        mortgageValue:
+          type: integer
+          example: 100
+        mortgaged:
+          type: boolean
+          example: false
+        ownerId:
+          type: integer
+          nullable: true
+          example: 2
+        buildingCount:
+          type: integer
+          description: Numărul de case (0–4) sau 5 pentru hotel
+          example: 0
+
+    PropertyDetailed:
+      allOf:
+        - $ref: '#/components/schemas/Property'
+        - type: object
+          properties:
+            buildings:
+              type: array
+              items:
+                $ref: '#/components/schemas/Building'
+
+    Building:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 7
+        propertyId:
+          type: integer
+          example: 15
+        type:
+          type: string
+          enum: [house, hotel]
+          example: house
+
+    Trade:
+      type: object
+      properties:
+        tradeId:
+          type: integer
+          example: 3
+        fromPlayerId:
+          type: integer
+          example: 1
+        toPlayerId:
+          type: integer
+          example: 2
+        offeredMoney:
+          type: integer
+          example: 200
+        offeredPropertyIds:
+          type: array
+          items:
+            type: integer
+          example: []
+        requestedMoney:
+          type: integer
+          example: 0
+        requestedPropertyIds:
+          type: array
+          items:
+            type: integer
+          example: [14]
+        status:
+          type: string
+          enum: [pending, accepted, rejected, cancelled]
+          example: pending
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-03-15T10:05:00Z"
+
+    ActionRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        turnId:
+          type: integer
+          example: 10
+        actionType:
+          type: string
+          example: buy_property
+        propertyId:
+          type: integer
+          nullable: true
+          example: 15
+        executedAt:
+          type: string
+          format: date-time
+          example: "2026-03-15T10:03:00Z"
+
+    ActionResult:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Action executed successfully
+        gameStatus:
+          type: string
+          enum: [waiting, active, finished]
+          example: active
+        player:
+          $ref: '#/components/schemas/Player'
+        affectedProperty:
+          $ref: '#/components/schemas/Property'
+          nullable: true
 
     ErrorResponse:
       type: object
