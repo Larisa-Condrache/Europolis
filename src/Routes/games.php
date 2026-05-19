@@ -2,106 +2,261 @@
 
 declare(strict_types=1);
 
+use Europolis\Database;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\App;
 
 return function (App $app): void {
 
-    /**
-     * POST /games
-     * Creează o sesiune nouă de joc.
-     * Body: { "hostName": "Ana", "maxPlayers": 4 }
-     */
+    // =========================================================
+    // LIST GAMES
+    // =========================================================
+    $app->get('/games', function (Request $request, Response $response): Response {
+
+        $pdo = Database::getConnection();
+
+        $stmt = $pdo->query(
+            'SELECT
+                g.id,
+                g.status,
+                g.max_players,
+                g.current_player_id,
+                g.created_at,
+                cp.name AS current_player_name,
+                COUNT(p.id) AS player_count
+             FROM games g
+             LEFT JOIN players cp ON cp.id = g.current_player_id
+             LEFT JOIN players p ON p.game_id = g.id
+             GROUP BY g.id, g.status, g.max_players, g.current_player_id, g.created_at, cp.name
+             ORDER BY
+                FIELD(g.status, "active", "waiting", "finished"),
+                g.id DESC'
+        );
+
+        $games = array_map(fn($game) => [
+            'id' => (int)$game['id'],
+            'status' => $game['status'],
+            'maxPlayers' => (int)$game['max_players'],
+            'playerCount' => (int)$game['player_count'],
+            'currentPlayerId' => $game['current_player_id'] ? (int)$game['current_player_id'] : null,
+            'currentPlayerName' => $game['current_player_name'],
+            'createdAt' => $game['created_at'],
+        ], $stmt->fetchAll());
+
+        return write_json($response, 200, $games);
+    });
+
+    // =========================================================
+    // CREATE GAME
+    // =========================================================
     $app->post('/games', function (Request $request, Response $response): Response {
-        $body = $request->getParsedBody();
 
-        // Validare câmpuri obligatorii
+        $body = json_decode((string)$request->getBody(), true) ?? [];
+
         if (empty($body['hostName']) || empty($body['maxPlayers'])) {
-            $response->getBody()->write(json_encode([
-                'error'   => 'BAD_REQUEST',
-                'message' => 'Câmpurile hostName și maxPlayers sunt obligatorii.',
-            ]));
-            return $response->withStatus(400)->withHeader('Content-Type', 'application/json');
+            return write_json($response, 400, [
+                'error' => 'BAD_REQUEST',
+                'message' => 'hostName si maxPlayers sunt obligatorii'
+            ]);
         }
 
-        // TODO: salvare în baza de date prin GameService / GameRepository
-        $game = [
-            'id'         => 1,                  // înlocuiește cu ID generat de DB
+        $maxPlayers = (int)$body['maxPlayers'];
+
+        if ($maxPlayers < 2 || $maxPlayers > 6) {
+            return write_json($response, 400, [
+                'error' => 'BAD_REQUEST',
+                'message' => 'maxPlayers trebuie intre 2 si 6'
+            ]);
+        }
+
+        $pdo = Database::getConnection();
+
+        $stmt = $pdo->prepare(
+            'INSERT INTO games (status, max_players, current_player_id)
+             VALUES ("waiting", :max_players, NULL)'
+        );
+
+        $stmt->execute([
+            'max_players' => $maxPlayers
+        ]);
+
+        $gameId = (int)$pdo->lastInsertId();
+
+        // host player
+        $stmt = $pdo->prepare(
+            'INSERT INTO players (game_id, name, balance, position, status)
+             VALUES (:game_id, :name, 1500, 0, "active")'
+        );
+
+        $stmt->execute([
+            'game_id' => $gameId,
+            'name'    => $body['hostName']
+        ]);
+
+        $hostId = (int)$pdo->lastInsertId();
+
+        // set current player
+        $pdo->prepare(
+            'UPDATE games SET current_player_id = :pid WHERE id = :id'
+        )->execute([
+            'pid' => $hostId,
+            'id'  => $gameId
+        ]);
+
+        return write_json($response, 201, [
+            'id'         => $gameId,
             'status'     => 'waiting',
-            'maxPlayers' => (int) $body['maxPlayers'],
-            'players'    => [
-                [
-                    'id'       => 1,
-                    'name'     => $body['hostName'],
-                    'balance'  => 1500,
-                    'position' => 0,
-                    'status'   => 'active',
-                ],
-            ],
-        ];
-
-        $response->getBody()->write(json_encode($game));
-        return $response->withStatus(201)->withHeader('Content-Type', 'application/json');
+            'maxPlayers' => $maxPlayers,
+            'currentPlayerId' => $hostId,
+            'players'    => [[
+                'id'       => $hostId,
+                'name'     => $body['hostName'],
+                'balance'  => 1500,
+                'position' => 0,
+                'status'   => 'active'
+            ]]
+        ]);
     });
 
-    /**
-     * GET /games/{gameId}
-     * Obține starea curentă a unui joc.
-     */
+    // =========================================================
+    // GET GAME
+    // =========================================================
     $app->get('/games/{gameId}', function (Request $request, Response $response, array $args): Response {
-        $gameId = (int) $args['gameId'];
 
-        // TODO: interogare GameRepository::findById($gameId)
-        // Simulare răspuns — înlocuiește cu date reale din DB
-        $game = [
-            'id'             => $gameId,
-            'status'         => 'active',
-            'currentPlayerId'=> 2,
-            'players'        => [
-                ['id' => 1, 'name' => 'Ana',   'balance' => 1380, 'position' => 7,  'status' => 'active'],
-                ['id' => 2, 'name' => 'Mihai', 'balance' => 1500, 'position' => 0,  'status' => 'active'],
-            ],
-        ];
+        $gameId = (int)$args['gameId'];
+        $pdo = Database::getConnection();
 
-        if ($game === null) {
-            $response->getBody()->write(json_encode([
-                'error'   => 'NOT_FOUND',
-                'message' => 'Jocul cu id-ul ' . $gameId . ' nu a fost găsit.',
-            ]));
-            return $response->withStatus(404)->withHeader('Content-Type', 'application/json');
+        $stmt = $pdo->prepare('SELECT * FROM games WHERE id = :id');
+        $stmt->execute(['id' => $gameId]);
+        $game = $stmt->fetch();
+
+        if (!$game) {
+            return write_json($response, 404, [
+                'error' => 'NOT_FOUND',
+                'message' => 'Joc inexistent'
+            ]);
         }
 
-        $response->getBody()->write(json_encode($game));
-        return $response->withStatus(200)->withHeader('Content-Type', 'application/json');
+        $stmt = $pdo->prepare(
+            'SELECT
+                p.id,
+                p.name,
+                p.balance,
+                p.position,
+                p.status,
+                GROUP_CONCAT(op.property_tile_index ORDER BY op.property_tile_index) AS properties
+             FROM players p
+             LEFT JOIN owned_properties op ON op.player_id = p.id AND op.game_id = p.game_id
+             WHERE p.game_id = :game_id
+             GROUP BY p.id, p.name, p.balance, p.position, p.status
+             ORDER BY p.id'
+        );
+
+        $stmt->execute(['game_id' => $gameId]);
+        $players = $stmt->fetchAll();
+
+        return write_json($response, 200, [
+            'id' => (int)$game['id'],
+            'status' => $game['status'],
+            'maxPlayers' => (int)$game['max_players'],
+            'currentPlayerId' => $game['current_player_id'] ? (int)$game['current_player_id'] : null,
+            'players' => array_map(fn($p) => [
+                'id' => (int)$p['id'],
+                'name' => $p['name'],
+                'balance' => (int)$p['balance'],
+                'position' => (int)$p['position'],
+                'status' => $p['status'],
+                'properties' => $p['properties']
+                    ? array_map('intval', explode(',', $p['properties']))
+                    : []
+            ], $players)
+        ]);
     });
 
-    /**
-     * PATCH /games/{gameId}
-     * Modifică starea jocului (ex: pornire joc cu status: active).
-     * Body: { "status": "active" }
-     */
+    // =========================================================
+    // UPDATE GAME STATUS
+    // =========================================================
     $app->patch('/games/{gameId}', function (Request $request, Response $response, array $args): Response {
-        $gameId = (int) $args['gameId'];
-        $body   = $request->getParsedBody();
 
-        $allowedStatuses = ['active', 'finished'];
+        $gameId = (int)$args['gameId'];
+        $body = json_decode((string)$request->getBody(), true) ?? [];
 
-        if (empty($body['status']) || !in_array($body['status'], $allowedStatuses, true)) {
-            $response->getBody()->write(json_encode([
-                'error'   => 'BAD_REQUEST',
-                'message' => 'Status invalid. Valorile permise: ' . implode(', ', $allowedStatuses),
-            ]));
-            return $response->withStatus(400)->withHeader('Content-Type', 'application/json');
+        $allowed = ['active', 'finished'];
+
+        if (empty($body['status']) || !in_array($body['status'], $allowed, true)) {
+            return write_json($response, 400, [
+                'error' => 'BAD_REQUEST',
+                'message' => 'status invalid'
+            ]);
         }
 
-        // TODO: GameRepository::updateStatus($gameId, $body['status'])
+        $pdo = Database::getConnection();
 
-        $response->getBody()->write(json_encode([
-            'message' => 'Starea jocului a fost actualizată.',
-            'gameId'  => $gameId,
-            'status'  => $body['status'],
-        ]));
-        return $response->withStatus(200)->withHeader('Content-Type', 'application/json');
+        $stmt = $pdo->prepare('SELECT id FROM games WHERE id = :id');
+        $stmt->execute(['id' => $gameId]);
+
+        if (!$stmt->fetch()) {
+            return write_json($response, 404, [
+                'error' => 'NOT_FOUND',
+                'message' => 'Joc inexistent'
+            ]);
+        }
+
+        $pdo->prepare(
+            'UPDATE games SET status = :status WHERE id = :id'
+        )->execute([
+            'status' => $body['status'],
+            'id' => $gameId
+        ]);
+
+        return write_json($response, 200, [
+            'message' => 'Status actualizat',
+            'gameId' => $gameId,
+            'status' => $body['status']
+        ]);
     });
+
+    // =========================================================
+    // DELETE GAME
+    // =========================================================
+    $app->delete('/games/{gameId}', function (Request $request, Response $response, array $args): Response {
+
+        $gameId = (int)$args['gameId'];
+        $pdo = Database::getConnection();
+
+        $stmt = $pdo->prepare('SELECT id FROM games WHERE id = :id');
+        $stmt->execute(['id' => $gameId]);
+
+        if (!$stmt->fetch()) {
+            return write_json($response, 404, [
+                'error' => 'NOT_FOUND',
+                'message' => 'Joc inexistent'
+            ]);
+        }
+
+        $pdo->prepare('DELETE FROM players WHERE game_id = :id')
+            ->execute(['id' => $gameId]);
+
+        $pdo->prepare('DELETE FROM games WHERE id = :id')
+            ->execute(['id' => $gameId]);
+
+        return write_json($response, 200, [
+            'message' => 'Joc sters',
+            'gameId' => $gameId
+        ]);
+    });
+
+    // =========================================================
+    // HELPER GLOBAL (IMPORTANT)
+    // =========================================================
+    function write_json(Response $response, int $status, $data): Response {
+        $response->getBody()->write(
+            json_encode($data, JSON_UNESCAPED_UNICODE)
+        );
+
+        return $response
+            ->withStatus($status)
+            ->withHeader('Content-Type', 'application/json');
+    }
 };

@@ -3,7 +3,7 @@
         'name' => 'europolis/api',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => '9d4ab1c503477a30d4df15b6aaf585c81cec4a8c',
+        'reference' => '995c79b53a5b2201020ab30e29f1db741aa06334',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -13,7 +13,7 @@
         'europolis/api' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => '9d4ab1c503477a30d4df15b6aaf585c81cec4a8c',
+            'reference' => '995c79b53a5b2201020ab30e29f1db741aa06334',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

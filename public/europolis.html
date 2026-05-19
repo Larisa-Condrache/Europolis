@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Europolis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&family=DM+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+ 
+<header>
+  <h1>Europolis</h1>
+  <nav class="top-nav">
+    <details class="nav-menu">
+      <summary>API</summary>
+      <div class="nav-panel api-config">
+        <label>Server API</label>
+        <input type="text" id="api-base" placeholder="http://localhost:8080" value="http://localhost:8080">
+        <label>Încarcă după ID</label>
+        <input type="number" id="game-id-input" placeholder="Game ID">
+        <button class="btn btn-primary" onclick="loadGame()">Încarcă jocul</button>
+      </div>
+    </details>
+    <details class="nav-menu wide">
+      <summary>Jocuri</summary>
+      <div class="nav-panel">
+        <div class="game-filter">
+          <button class="btn btn-sm active-filter" id="filter-all" onclick="setGameFilter('all')">Toate</button>
+          <button class="btn btn-sm" id="filter-active" onclick="setGameFilter('active')">Active</button>
+          <button class="btn btn-sm" id="filter-waiting" onclick="setGameFilter('waiting')">Waiting</button>
+        </div>
+        <button class="btn btn-sm" onclick="loadGames()">Actualizează lista</button>
+        <div id="games-list" class="games-list-menu">
+          <div class="empty-state">Se încarcă jocurile...</div>
+        </div>
+      </div>
+    </details>
+    <details class="nav-menu">
+      <summary>Joc nou</summary>
+      <div class="nav-panel setup-form">
+        <input type="text" id="host-name" placeholder="Numele tău (host)">
+        <select id="max-players">
+          <option value="2">2 jucători</option>
+          <option value="3">3 jucători</option>
+          <option value="4" selected>4 jucători</option>
+          <option value="5">5 jucători</option>
+          <option value="6">6 jucători</option>
+        </select>
+        <button class="btn btn-gold" onclick="createGame()">Creează joc</button>
+      </div>
+    </details>
+    <details class="nav-menu">
+      <summary>Adaugă jucător</summary>
+      <div class="nav-panel setup-form">
+        <input type="text" id="new-player-name" placeholder="Numele jucătorului">
+        <button class="btn btn-primary" onclick="joinGame()">Alătură-te</button>
+      </div>
+    </details>
+  </nav>
+  <div class="header-status">
+    <span id="header-game-status"></span>
+    <span id="header-game-id" style="font-family:'DM Mono',monospace;font-size:12px;opacity:0.5;"></span>
+  </div>
+</header>
+ 
+<div class="app">
+ 
+  <!-- LEFT SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-section api-config">
+      <h3>Configurare API</h3>
+      <input type="text" id="api-base" placeholder="http://localhost:8080" value="http://localhost:8080">
+      <input type="number" id="game-id-input" placeholder="Game ID (dacă există)">
+      <button class="btn btn-primary" onclick="loadGame()">Încarcă jocul</button>
+      <button class="btn btn-sm" onclick="loadGames()">Actualizează lista</button>
+    </div>
+
+    <div class="sidebar-section">
+      <h3>Jocuri existente</h3>
+      <div class="game-filter">
+        <button class="btn btn-sm active-filter" id="filter-all" onclick="setGameFilter('all')">Toate</button>
+        <button class="btn btn-sm" id="filter-active" onclick="setGameFilter('active')">Active</button>
+        <button class="btn btn-sm" id="filter-waiting" onclick="setGameFilter('waiting')">Waiting</button>
+      </div>
+      <div id="games-list">
+        <div class="empty-state">Se încarcă jocurile...</div>
+      </div>
+    </div>
+ 
+    <div class="sidebar-section">
+      <h3>Joc nou</h3>
+      <div class="setup-form">
+        <input type="text" id="host-name" placeholder="Numele tău (host)">
+        <select id="max-players">
+          <option value="2">2 jucători</option>
+          <option value="3">3 jucători</option>
+          <option value="4" selected>4 jucători</option>
+          <option value="5">5 jucători</option>
+          <option value="6">6 jucători</option>
+        </select>
+        <button class="btn btn-gold" onclick="createGame()">Crează joc</button>
+      </div>
+    </div>
+ 
+    <div class="sidebar-section">
+      <h3>Adaugă jucător</h3>
+      <div class="setup-form">
+        <input type="text" id="new-player-name" placeholder="Numele jucătorului">
+        <button class="btn" onclick="joinGame()">Alătură-te</button>
+      </div>
+    </div>
+ 
+    <div class="sidebar-section" id="game-controls" style="display:none;">
+      <h3>Stare joc</h3>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" onclick="startGame()">Pornește</button>
+        <button class="btn btn-sm" onclick="refreshGame()">↺ Refresh</button>
+        <button class="btn btn-sm" onclick="openTradeModal()">⇄ Trade</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteCurrentGame()">Șterge joc</button>
+      </div>
+    </div>
+ 
+    <div class="sidebar-section" id="turn-controls" style="display:none;">
+      <h3>Tura curentă</h3>
+      <div id="turn-info">—</div>
+      <div style="margin-top:8px;">
+        <button class="btn btn-gold" onclick="rollDice()" id="roll-btn">🎲 Aruncă zaruri</button>
+      </div>
+      <div class="actions-row" id="action-buttons" style="margin-top:8px;"></div>
+    </div>
+ 
+    <div class="sidebar-section">
+      <h3>Jucători</h3>
+      <div id="players-list">
+        <div class="empty-state">Niciun joc activ</div>
+      </div>
+    </div>
+  </aside>
+ 
+  <!-- BOARD CENTER -->
+  <main class="board-area">
+    <div class="board-wrap">
+      <div class="board" id="board"></div>
+      <!-- tokens injected dynamically -->
+      <div id="tokens-layer" style="position:absolute;top:0;left:0;pointer-events:none;"></div>
+    </div>
+  </main>
+ 
+  <!-- RIGHT PANEL: LOG -->
+  <aside class="right-panel">
+    <div class="sidebar-section">
+      <h3>Rezumat joc</h3>
+      <div id="game-summary" class="summary-panel">
+        <div class="empty-state">Alege un joc din listă</div>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <h3>Proprietăți cumpărate</h3>
+      <div id="properties-list">
+        <div class="empty-state">Niciun joc selectat</div>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <h3>Jurnal evenimente</h3>
+      <button class="btn btn-sm" onclick="clearLog()" style="margin-bottom:0;">Șterge</button>
+    </div>
+    <div id="log-list" class="log-list">
+      <div class="log-entry info"><span class="time">--:--</span> Bun venit în Europolis!</div>
+    </div>
+  </aside>
+</div>
+ 
+<!-- TRADE MODAL -->
+<div class="modal-overlay" id="trade-modal">
+  <div class="modal">
+    <h2>Propunere Trade</h2>
+    <label>De la jucătorul (ID)</label>
+    <input type="number" id="trade-from" placeholder="ID jucător">
+    <label>Către jucătorul (ID)</label>
+    <input type="number" id="trade-to" placeholder="ID jucător">
+    <label>Bani oferiti (€)</label>
+    <input type="number" id="trade-money" placeholder="0" value="0">
+    <label>ID proprietăți cerute (separate prin virgulă)</label>
+    <input type="text" id="trade-props" placeholder="ex: 6,14">
+
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="submitTrade()">Trimite oferta</button>
+      <button class="btn" onclick="closeTradeModal()">Anulează</button>
+    </div>
+  </div>
+</div>
+ 
+<script>
+// ─── BOARD DATA ──────────────────────────────────────────────────────────────
+const TILES = [
+  // Bottom row (right to left, index 0-10)
+  { i:0,  name:'START',        type:'go',       color:null,     price:null,   icon:'GO' },
+  { i:1,  name:'Timișoara',    type:'property', color:'purple', price:60,     icon:null },
+  { i:2,  name:'Fond Comunitar',type:'community',color:null,    price:null,   icon:'🃏' },
+  { i:3,  name:'Arad',         type:'property', color:'purple', price:60,     icon:null },
+  { i:4,  name:'Taxă Venit',   type:'tax',      color:null,     price:200,    icon:'💰' },
+  { i:5,  name:'Gara Nord',    type:'station',  color:'gray',   price:200,    icon:'🚂' },
+  { i:6,  name:'Oradea',       type:'property', color:'teal',   price:100,    icon:null },
+  { i:7,  name:'Șansă',        type:'chance',   color:null,     price:null,   icon:'❓' },
+  { i:8,  name:'Cluj-Napoca',  type:'property', color:'teal',   price:100,    icon:null },
+  { i:9,  name:'Deva',         type:'property', color:'teal',   price:120,    icon:null },
+  { i:10, name:'Închisoare',   type:'jail',     color:null,     price:null,   icon:'🔒' },
+  // Left column (bottom to top, 11-19)
+  { i:11, name:'Sibiu',        type:'property', color:'orange', price:140,    icon:null },
+  { i:12, name:'Utilitate E',  type:'utility',  color:'gray',   price:150,    icon:'⚡' },
+  { i:13, name:'Sfântu G.',    type:'property', color:'orange', price:140,    icon:null },
+  { i:14, name:'Focșani',      type:'property', color:'orange', price:160,    icon:null },
+  { i:15, name:'Gara Sud',     type:'station',  color:'gray',   price:200,    icon:'🚂' },
+  { i:16, name:'Brașov',       type:'property', color:'red',    price:180,    icon:null },
+  { i:17, name:'Fond Comunitar',type:'community',color:null,    price:null,   icon:'🃏' },
+  { i:18, name:'Ploiești',     type:'property', color:'red',    price:180,    icon:null },
+  { i:19, name:'Pitești',      type:'property', color:'red',    price:200,    icon:null },
+  { i:20, name:'Parcare Liberă',type:'parking', color:null,     price:null,   icon:'🅿' },
+  // Top row (left to right, 21-30)
+  { i:21, name:'Craiova',      type:'property', color:'yellow', price:220,    icon:null },
+  { i:22, name:'Șansă',        type:'chance',   color:null,     price:null,   icon:'❓' },
+  { i:23, name:'Târgu Mureș',  type:'property', color:'yellow', price:220,    icon:null },
+  { i:24, name:'Constanța',    type:'property', color:'yellow', price:240,    icon:null },
+  { i:25, name:'Gara Est',     type:'station',  color:'gray',   price:200,    icon:'🚂' },
+  { i:26, name:'Galați',       type:'property', color:'green',  price:260,    icon:null },
+  { i:27, name:'Fond Comunitar',type:'community',color:null,    price:null,   icon:'🃏' },
+  { i:28, name:'Brăila',       type:'property', color:'green',  price:260,    icon:null },
+  { i:29, name:'Utilitate A',  type:'utility',  color:'gray',   price:150,    icon:'💧' },
+  { i:30, name:'Mergi la Pușcărie',type:'gotojail',color:null,  price:null,   icon:'👮' },
+  // Right column (top to bottom, 31-39)
+  { i:31, name:'Iași',         type:'property', color:'blue',   price:300,    icon:null },
+  { i:32, name:'Iași Nord',    type:'property', color:'blue',   price:300,    icon:null },
+  { i:33, name:'Fond Comunitar',type:'community',color:null,    price:null,   icon:'🃏' },
+  { i:34, name:'Suceava',      type:'property', color:'blue',   price:320,    icon:null },
+  { i:35, name:'Gara Vest',    type:'station',  color:'gray',   price:200,    icon:'🚂' },
+  { i:36, name:'Șansă',        type:'chance',   color:null,     price:null,   icon:'❓' },
+  { i:37, name:'București',    type:'property', color:'pink',   price:350,    icon:null },
+  { i:38, name:'Taxă Lux',     type:'tax',      color:null,     price:100,    icon:'💎' },
+  { i:39, name:'Parlament',    type:'property', color:'pink',   price:400,    icon:null },
+];
+ 
+const COLOR_CSS = {
+  purple: '#7B4FBF', teal: '#1A8C8C', orange: '#D4621A',
+  red: '#C03030', yellow: '#C9A020', green: '#2D8B40',
+  blue: '#1A5FA0', pink: '#B83070', gray: '#888'
+};
+ 
+const PLAYER_COLORS = ['#B83232','#1E4A7A','#2D6B3C','#8B6914','#5B2D8C','#1A6B6B'];
+ 
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let state = {
+  apiBase: 'http://localhost:8080',
+  games: [],
+  gameFilter: 'all',
+  gameId: null,
+  game: null,
+  players: [],
+  currentTurnId: null,
+  availableActions: [],
+  diceRolled: false,
+  trades: [],
+  properties: [],
+};
+ 
+// ─── BOARD RENDERING ─────────────────────────────────────────────────────────
+function buildBoard() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+ 
+  // We fill an 11x11 grid. Positions:
+  // Row 11 (bottom): cols 1-11 → tiles 0-10 (right to left)
+  // Col 1 (left): rows 10-2 → tiles 11-19 (bottom to top)
+  // Row 1 (top): cols 1-11 → tiles 20-30 (left to right)
+  // Col 11 (right): rows 2-10 → tiles 31-39 (top to bottom)
+ 
+  const grid = Array.from({length:11}, () => Array(11).fill(null));
+ 
+  // Bottom row: tile 0 at col 10 (index 0-10, right to left: col = 10-i)
+  for (let i = 0; i <= 10; i++) grid[10][10-i] = i;
+  // Left col: tiles 11-19, row 9 down to 1
+  for (let i = 0; i <= 8; i++) grid[9-i][0] = 11+i;
+  // Top row: tiles 20-30, col 0 to 10
+  for (let i = 0; i <= 10; i++) grid[0][i] = 20+i;
+  // Right col: tiles 31-39, row 1 to 9
+  for (let i = 0; i <= 8; i++) grid[1+i][10] = 31+i;
+ 
+  for (let r = 0; r < 11; r++) {
+    for (let c = 0; c < 11; c++) {
+      const tileIdx = grid[r][c];
+      if (r > 0 && r < 10 && c > 0 && c < 10) {
+        // Center cell (empty — covered by center panel)
+        const div = document.createElement('div');
+        div.style.background = 'var(--cream)';
+        board.appendChild(div);
+        continue;
+      }
+      const tile = tileIdx !== null ? TILES[tileIdx] : null;
+      const div = document.createElement('div');
+      div.className = 'cell';
+      if (!tile) { board.appendChild(div); continue; }
+ 
+      const isCorner = (r===0&&c===0)||(r===0&&c===10)||(r===10&&c===0)||(r===10&&c===10);
+      if (isCorner) div.classList.add('corner');
+      if (c===0 && !isCorner) div.classList.add('side-left');
+      if (c===10 && !isCorner) div.classList.add('side-right');
+ 
+      div.id = `cell-${tile.i}`;
+      div.dataset.idx = tile.i;
+      div.title = `${tile.name}${tile.price ? ' — €'+tile.price : ''}`;
+ 
+      if (tile.color && tile.type === 'property') {
+        const bar = document.createElement('div');
+        bar.className = 'cell-color-bar';
+        bar.style.background = COLOR_CSS[tile.color] || '#ccc';
+        div.appendChild(bar);
+      }
+ 
+      if (tile.icon) {
+        const icon = document.createElement('div');
+        icon.className = 'cell-icon';
+        icon.textContent = tile.icon;
+        if (tile.type === 'go') {
+          icon.style.fontSize = '14px';
+          icon.style.fontWeight = '900';
+          icon.style.fontFamily = "'Playfair Display',serif";
+          icon.style.color = 'var(--red)';
+        }
+        div.appendChild(icon);
+      }
+ 
+      const name = document.createElement('div');
+      name.className = 'cell-name';
+      name.textContent = tile.name;
+      div.appendChild(name);
+ 
+      if (tile.price) {
+        const price = document.createElement('div');
+        price.className = 'cell-price';
+        price.textContent = '€' + tile.price;
+        div.appendChild(price);
+      }
+ 
+      board.appendChild(div);
+    }
+  }
+ 
+  // Center overlay
+  const center = document.createElement('div');
+  center.className = 'center-panel';
+  center.id = 'center-panel';
+  center.innerHTML = `
+    <div class="game-logo">EURO<span>POLIS</span></div>
+    <div class="game-subtitle">Joc de strategie</div>
+    <div style="margin:8px 0;" id="center-dice">
+      <div class="dice-area">
+        <div class="die" id="die1">-</div>
+        <div class="die" id="die2">-</div>
+      </div>
+    </div>
+    <div id="center-info" style="font-size:12px;color:var(--ink-muted);text-align:center;"></div>
+  `;
+  document.querySelector('.board-wrap').appendChild(center);
+}
+ 
+// ─── CELL POSITION MAPPING (for tokens) ──────────────────────────────────────
+function getCellCenter(tileIdx) {
+  const cell = document.getElementById(`cell-${tileIdx}`);
+  if (!cell) return null;
+  const bw = document.querySelector('.board-wrap');
+  const br = bw.getBoundingClientRect();
+  const cr = cell.getBoundingClientRect();
+  return {
+    x: cr.left - br.left + cr.width/2,
+    y: cr.top  - br.top  + cr.height/2
+  };
+}
+ 
+function renderTokens() {
+  const layer = document.getElementById('tokens-layer');
+  layer.innerHTML = '';
+  state.players.forEach((p, idx) => {
+    if (p.status === 'bankrupt') return;
+    const pos = getCellCenter(p.position);
+    if (!pos) return;
+    const token = document.createElement('div');
+    token.className = 'token';
+    token.style.background = PLAYER_COLORS[idx % PLAYER_COLORS.length];
+    token.style.left = (pos.x - 7 + (idx%3)*10 - 10) + 'px';
+    token.style.top  = (pos.y - 7 + Math.floor(idx/3)*10 - 5) + 'px';
+    token.textContent = p.name[0].toUpperCase();
+    token.title = p.name + ' — poziția ' + p.position;
+    layer.appendChild(token);
+  });
+}
+ 
+// ─── PLAYER LIST ─────────────────────────────────────────────────────────────
+function renderPlayers() {
+  const list = document.getElementById('players-list');
+  if (!state.players.length) {
+    list.innerHTML = '<div class="empty-state">Niciun jucător</div>';
+    return;
+  }
+  list.innerHTML = '';
+  state.players.forEach((p, idx) => {
+    const isCurrent = state.game && state.game.currentPlayerId === p.id;
+    const div = document.createElement('div');
+    div.className = 'player-card' + (isCurrent ? ' active' : '') + (p.status==='bankrupt'?' bankrupt':'');
+    div.innerHTML = `
+      <div class="player-avatar" style="background:${PLAYER_COLORS[idx%6]};color:white;">${p.name[0].toUpperCase()}</div>
+      <div class="player-info">
+        <div class="player-name">${p.name} <span class="id-chip">ID ${p.id}</span></div>
+        <div class="player-balance">€${p.balance}</div>
+        <div class="player-pos">Pos: ${p.position} · Prop: ${(p.properties || []).join(', ') || '-'} · <span class="pill ${p.status}">${p.status}</span></div>
+      </div>
+      ${isCurrent ? '<span class="current-badge">tură</span>' : ''}
+      <button class="icon-danger" title="Șterge jucătorul" onclick="deletePlayer(${p.id})">×</button>
+    `;
+    list.appendChild(div);
+  });
+}
+ 
+// ─── HEADER ──────────────────────────────────────────────────────────────────
+function renderGameSummary() {
+  const box = document.getElementById('game-summary');
+  if (!state.game) {
+    box.innerHTML = '<div class="empty-state">Alege un joc din listă</div>';
+    return;
+  }
+
+  const current = state.players.find(p => p.id === state.game.currentPlayerId);
+  box.innerHTML = `
+    <div class="summary-grid">
+      <div><span>Joc</span><b>#${state.game.id}</b></div>
+      <div><span>Status</span><b>${state.game.status}</b></div>
+      <div><span>Jucători</span><b>${state.players.length}/${state.game.maxPlayers}</b></div>
+      <div><span>Tura</span><b>${current ? `${current.name} (#${current.id})` : '-'}</b></div>
+    </div>
+  `;
+}
+
+function renderProperties() {
+  const list = document.getElementById('properties-list');
+  if (!state.gameId) {
+    list.innerHTML = '<div class="empty-state">Niciun joc selectat</div>';
+    return;
+  }
+
+  const owned = (state.properties || []).filter(p => p.ownerId);
+  if (!owned.length) {
+    list.innerHTML = '<div class="empty-state">Nicio proprietate cumpărată încă</div>';
+    return;
+  }
+
+  list.innerHTML = owned.map(p => `
+    <div class="property-row">
+      <div>
+        <b>${p.name}</b>
+        <span>Tile ${p.tileIndex} · ${p.group || p.type}</span>
+      </div>
+      <em>${p.ownerName || ('#' + p.ownerId)}</em>
+    </div>
+  `).join('');
+}
+
+function renderGames() {
+  const list = document.getElementById('games-list');
+  const games = state.games.filter(g => state.gameFilter === 'all' || g.status === state.gameFilter);
+
+  if (!games.length) {
+    list.innerHTML = '<div class="empty-state">Nu există jocuri pentru filtrul ales</div>';
+    return;
+  }
+
+  list.innerHTML = games.map(g => `
+    <div class="game-card ${state.gameId === g.id ? 'selected' : ''}" onclick="selectGame(${g.id})">
+      <span>
+        <b>Joc #${g.id}</b>
+        <small>${g.playerCount}/${g.maxPlayers} jucători ${g.currentPlayerName ? '· tura: ' + g.currentPlayerName + ' (#' + g.currentPlayerId + ')' : ''}</small>
+      </span>
+      <em class="pill ${g.status}">${g.status}</em>
+      <button class="icon-danger" title="Șterge jocul" onclick="deleteGame(${g.id}, event)">×</button>
+    </div>
+  `).join('');
+}
+
+function setGameFilter(filter) {
+  state.gameFilter = filter;
+  ['all', 'active', 'waiting'].forEach(name => {
+    const btn = document.getElementById('filter-' + name);
+    if (btn) btn.classList.toggle('active-filter', name === filter);
+  });
+  renderGames();
+}
+
+async function loadGames() {
+  try {
+    state.games = await apiFetch('GET', '/games');
+    renderGames();
+  } catch(e) {
+    document.getElementById('games-list').innerHTML = '<div class="empty-state">API indisponibil</div>';
+    log(`Nu pot încărca jocurile: ${e.data?.message || e.data?.error || e.status}`, 'error');
+  }
+}
+
+async function selectGame(gameId) {
+  state.gameId = gameId;
+  document.getElementById('game-id-input').value = gameId;
+  await refreshGame();
+}
+
+function updateHeader() {
+  const el = document.getElementById('header-game-status');
+  const gid = document.getElementById('header-game-id');
+  if (!state.game) { el.innerHTML = ''; gid.textContent = ''; return; }
+  el.innerHTML = `<span class="status-dot"></span> <span class="pill ${state.game.status}">${state.game.status}</span>`;
+  gid.textContent = `Game #${state.gameId}`;
+}
+ 
+// ─── API ─────────────────────────────────────────────────────────────────────
+function api() {
+  const val = document.getElementById('api-base').value.trim();
+  return (val || window.location.origin).replace(/\/$/, '');
+}
+ 
+async function apiFetch(method, path, body) {
+  const url = api() + path;
+  const opts = { method, headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  try {
+    const res = await fetch(url, opts);
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = { raw: text }; }
+    if (!res.ok) throw { status: res.status, data };
+    return data;
+  } catch(e) {
+    if (e.status) throw e;
+    throw { status: 0, data: { error: 'Network error', message: e.message || String(e) } };
+  }
+}
+ 
+function log(msg, type='') {
+  const list = document.getElementById('log-list');
+  const now = new Date().toLocaleTimeString('ro',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const entry = document.createElement('div');
+  entry.className = 'log-entry ' + type;
+  entry.innerHTML = `<span class="time">${now}</span>${msg}`;
+  list.insertBefore(entry, list.firstChild);
+  if (list.children.length > 80) list.removeChild(list.lastChild);
+}
+ 
+function clearLog() { document.getElementById('log-list').innerHTML = ''; }
+ 
+// ─── GAME ACTIONS ─────────────────────────────────────────────────────────────
+async function createGame() {
+  const hostName = document.getElementById('host-name').value.trim();
+  const maxPlayers = parseInt(document.getElementById('max-players').value);
+  if (!hostName) { log('Introdu numele host-ului', 'error'); return; }
+  try {
+    const data = await apiFetch('POST', '/games', { hostName, maxPlayers });
+    state.gameId = data.id;
+    state.game = data;
+    state.players = data.players || [];
+    document.getElementById('game-id-input').value = data.id;
+    log(`Joc creat cu ID #${data.id}. Bun venit, ${hostName}!`, 'success');
+    onGameLoaded();
+    await loadGames();
+  } catch(e) {
+    log(`Eroare creare joc: ${e.data?.message || e.status}`, 'error');
+  }
+}
+ 
+async function joinGame() {
+  if (!state.gameId) { log('Crează sau încarcă un joc mai întâi', 'error'); return; }
+  const name = document.getElementById('new-player-name').value.trim();
+  if (!name) { log('Introdu un nume', 'error'); return; }
+  try {
+    const data = await apiFetch('POST', `/games/${state.gameId}/players`, { name });
+    log(`${name} s-a alăturat jocului (ID: ${data.id})`, 'success');
+    await refreshGame();
+    await loadGames();
+    if (!window._gameInterval) {
+    window._gameInterval = setInterval(() => {
+      if (state.gameId) refreshGame();
+    }, 5000);
+  }
+  } catch(e) {
+    log(`Eroare alăturare: ${e.data?.message || e.status}`, 'error');
+  }
+}
+ 
+async function startGame() {
+  if (!state.gameId) return;
+  try {
+    await apiFetch('PATCH', `/games/${state.gameId}`, { status: 'active' });
+    log('Jocul a început!', 'success');
+    await refreshGame();
+    await loadGames();
+  } catch(e) {
+    log(`Eroare pornire: ${e.data?.message || e.status}`, 'error');
+  }
+}
+
+async function deleteGame(gameId, event) {
+  if (event) event.stopPropagation();
+  if (!gameId) return;
+  const ok = confirm(`Ștergi jocul #${gameId}?`);
+  if (!ok) return;
+
+  try {
+    await apiFetch('DELETE', `/games/${gameId}`);
+    log(`Joc #${gameId} șters`, 'success');
+    if (state.gameId === gameId) {
+      state.gameId = null;
+      state.game = null;
+      state.players = [];
+      state.properties = [];
+      state.trades = [];
+      document.getElementById('game-id-input').value = '';
+      renderPlayers();
+      renderGameSummary();
+      renderProperties();
+      document.getElementById('game-controls').style.display = 'none';
+      document.getElementById('turn-controls').style.display = 'none';
+    }
+    await loadGames();
+  } catch(e) {
+    log(`Eroare ștergere joc: ${e.data?.message || e.data?.error || e.status}`, 'error');
+  }
+}
+
+async function deleteCurrentGame() {
+  if (!state.gameId) return;
+  await deleteGame(state.gameId);
+}
+
+async function deletePlayer(playerId) {
+  if (!state.gameId || !playerId) return;
+  const player = state.players.find(p => p.id === playerId);
+  const ok = confirm(`Ștergi jucătorul ${player?.name || '#' + playerId}?`);
+  if (!ok) return;
+
+  try {
+    await apiFetch('DELETE', `/games/${state.gameId}/players/${playerId}`);
+    log(`Jucător #${playerId} șters`, 'success');
+    await refreshGame();
+    await loadGames();
+  } catch(e) {
+    log(`Eroare ștergere jucător: ${e.data?.message || e.data?.error || e.status}`, 'error');
+  }
+}
+ 
+async function loadGame() {
+  const gid = parseInt(document.getElementById('game-id-input').value);
+  if (!gid) { log('Introdu un Game ID valid', 'error'); return; }
+  state.gameId = gid;
+  await refreshGame();
+}
+ 
+async function refreshGame() {
+  if (!state.gameId) return;
+  try {
+    const data = await apiFetch('GET', `/games/${state.gameId}`);
+    state.game = data;
+    state.players = data.players || [];
+    state.currentTurnId = data.currentTurnId || state.currentTurnId;
+    state.availableActions = data.availableActions || state.availableActions;
+    state.diceRolled = data.diceRolled ?? state.diceRolled;
+
+    // ✅ încarcă trades întotdeauna
+    try {
+      state.trades = await apiFetch('GET', `/games/${state.gameId}/trades`);
+    } catch {}
+
+    try {
+      state.properties = await apiFetch('GET', `/games/${state.gameId}/properties`);
+    } catch { state.properties = []; }
+
+    log(`Joc #${state.gameId} actualizat — status: ${data.status}`, 'info');
+    onGameLoaded();
+    renderTrades(); // ✅ apelează după ce ai datele
+    renderProperties();
+    renderGames();
+  } catch(e) {
+    log(`Eroare încărcare joc: ${e.data?.message || e.status}`, 'error');
+  }
+}
+async function rollDice() {
+  if (!state.gameId || !state.game?.currentPlayerId) {
+    log('Niciun jucător curent definit', 'error');
+    return;
+  }
+
+  const d1 = document.getElementById('die1');
+  const d2 = document.getElementById('die2');
+
+  d1.classList.add('rolling');
+  d2.classList.add('rolling');
+
+  setTimeout(() => {
+    d1.classList.remove('rolling');
+    d2.classList.remove('rolling');
+  }, 700);
+
+  try {
+    const data = await apiFetch('POST', `/games/${state.gameId}/turns`, {
+      playerId: state.game.currentPlayerId
+    });
+
+    // ✔ single source of truth
+    state.currentTurnId = data.turnId;
+    state.availableActions = data.availableActions || [];
+    state.diceRolled = true;
+
+    d1.textContent = data.dice?.[0] ?? '?';
+    d2.textContent = data.dice?.[1] ?? '?';
+
+    const tile = data.landedTile;
+
+    document.getElementById('center-info').textContent =
+      `Poziție: ${data.toPosition}${tile ? ` — ${tile.name}` : ''}`;
+
+    document.getElementById('turn-info').innerHTML =
+      `🎲 <b>${data.dice?.[0]}+${data.dice?.[1]}=${(data.dice?.[0]||0)+(data.dice?.[1]||0)}</b><br>
+       Poziție: ${data.toPosition}`;
+
+    log(`${getPlayerName(state.game.currentPlayerId)} a aruncat ${data.dice?.join('+')}`, 'success');
+
+    highlightCell(data.toPosition);
+
+    document.getElementById('roll-btn').disabled = true;
+
+    renderActionButtons(state.availableActions);
+
+    await refreshGame();
+
+  } catch (e) {
+    d1.textContent = '-';
+    d2.textContent = '-';
+    log(`Eroare aruncare zaruri: ${e.data?.message || e.status}`, 'error');
+  }
+}
+ 
+async function executeAction(actionType) {
+  if (!state.currentTurnId) {
+    log('Nu există tură activă', 'error');
+    return;
+  }
+
+  try {
+    const data = await apiFetch(
+      'POST',
+      `/games/${state.gameId}/turns/${state.currentTurnId}/actions`,
+      { actionType }
+    );
+
+    log(`Acțiune "${actionType}" executată`, 'success');
+
+    if (actionType === 'end_turn') {
+      state.currentTurnId = null;
+      state.diceRolled = false;
+      state.availableActions = [];
+
+      document.getElementById('die1').textContent = '-';
+      document.getElementById('die2').textContent = '-';
+      document.getElementById('center-info').textContent = '';
+      document.getElementById('turn-info').textContent = '—';
+
+      document.getElementById('roll-btn').disabled = false;
+      renderActionButtons([]);
+      clearHighlight();
+    }
+
+    await refreshGame();
+
+  } catch (e) {
+    log(`Eroare acțiune: ${e.data?.message || e.status}`, 'error');
+  }
+}
+function renderTrades() {
+  // găsește sau creează containerul
+  let container = document.getElementById('trades-list');
+  if (!container) {
+    const section = document.createElement('div');
+    section.className = 'sidebar-section';
+    section.innerHTML = '<h3>Trades active</h3><div id="trades-list"></div>';
+    document.querySelector('.sidebar').appendChild(section);
+    container = document.getElementById('trades-list');
+  }
+
+  if (!state.trades?.length) {
+    container.innerHTML = '<div class="empty-state">Niciun trade</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+  state.trades.filter(t => t.status === 'pending').forEach(t => {
+    const div = document.createElement('div');
+    div.className = 'player-card';
+    div.style.flexDirection = 'column';
+    div.style.gap = '6px';
+    div.innerHTML = `
+      <div style="font-size:12px;">
+        Trade #${t.id}: jucător <b>${t.fromPlayerId}</b> → <b>${t.toPlayerId}</b>
+        ${t.offeredMoney ? `· €${t.offeredMoney}` : ''}
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-primary btn-sm" onclick="respondTrade(${t.id},'accepted')">✓ Accept</button>
+        <button class="btn btn-sm" onclick="respondTrade(${t.id},'rejected')">✗ Respinge</button>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+async function respondTrade(tradeId, status) {
+  try {
+    await apiFetch('PATCH', `/games/${state.gameId}/trades/${tradeId}`, { status });
+    log(`Trade #${tradeId} ${status}`, 'success');
+    await refreshGame();
+  } catch(e) {
+    log(`Eroare trade: ${e.data?.message || e.status}`, 'error');
+  }
+}
+
+async function acceptTrade(tradeId) {
+  await apiFetch('PATCH', `/games/${state.gameId}/trades/${tradeId}`, { status: 'accepted' });
+  await refreshGame();
+}
+ 
+function renderActionButtons(actions) {
+  const container = document.getElementById('action-buttons');
+  container.innerHTML = '';
+
+  const classMap = {
+    buy_property: 'buy',
+    pay_rent: 'pay',
+    pay_tax: 'pay',
+    end_turn: 'end',
+    trade: 'trade'
+  };
+
+  actions.forEach(a => {
+    const btn = document.createElement('button');
+    btn.className = 'action-btn ' + (classMap[a] || '');
+    btn.textContent = formatAction(a);
+
+    btn.onclick = () => {
+      if (a === 'trade') {
+        openTradeModal();   // ✔ UI only
+        return;
+      }
+
+      executeAction(a);     // ✔ server actions
+    };
+
+    container.appendChild(btn);
+  });
+}
+ 
+function formatAction(a) {
+  const map = {
+    buy_property: '🏠 Cumpără', pay_rent: '💸 Plătește chirie',
+    pay_tax: '💸 Plătește taxă', end_turn: '⏭ Termină tura',
+    draw_card: '🃏 Carte', go_to_jail: '🔒 Închisoare',
+    pay_jail: '💳 Plătește ieșire', use_jail_card: '🃏 Carte ieșire',
+    trade: '🔁 Trade',
+  };
+  return map[a] || a;
+}
+ 
+function highlightCell(idx) {
+  clearHighlight();
+  const cell = document.getElementById(`cell-${idx}`);
+  if (cell) cell.classList.add('highlighted');
+}
+function clearHighlight() {
+  document.querySelectorAll('.cell.highlighted').forEach(c => c.classList.remove('highlighted'));
+}
+ 
+function getPlayerName(id) {
+  const p = state.players.find(p => p.id === id);
+  return p ? p.name : `#${id}`;
+}
+ 
+function onGameLoaded() {
+  updateHeader();
+  renderPlayers();
+  renderGameSummary();
+  renderTokens();
+  document.getElementById('game-controls').style.display = 'block';
+  if (state.game?.status === 'active') {
+    document.getElementById('turn-controls').style.display = 'block';
+    if (!state.diceRolled) {
+      document.getElementById('roll-btn').disabled = false;
+    }
+    const cur = getPlayerName(state.game.currentPlayerId);
+    document.getElementById('turn-info').textContent = `Tura lui ${cur}`;
+  }
+}
+ 
+// ─── TRADE ───────────────────────────────────────────────────────────────────
+function openTradeModal() { document.getElementById('trade-modal').classList.add('open'); }
+function closeTradeModal() { document.getElementById('trade-modal').classList.remove('open'); }
+ 
+async function submitTrade() {
+  if (!state.gameId) { log('Nu există joc activ', 'error'); return; }
+  if (!state.game?.currentPlayerId) { log('Trade indisponibil: nu există tură activă', 'error'); return; }
+
+  const fromPlayerId = parseInt(document.getElementById('trade-from').value);
+  const toPlayerId   = parseInt(document.getElementById('trade-to').value);
+  const offeredMoney = parseInt(document.getElementById('trade-money').value) || 0;
+
+  const requestedRaw = document.getElementById('trade-props').value || '';
+  const requestedPropertyIds = requestedRaw
+    ? requestedRaw.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n))
+    : [];
+
+
+
+  try {
+    const data = await apiFetch('POST', `/games/${state.gameId}/trades`, {
+      fromPlayerId,
+      toPlayerId,
+      offeredMoney,
+      requestedPropertyIds
+    });
+    log(`Trade creat (ID: ${data.tradeId || data.id})`, 'success');
+    closeTradeModal();
+    await refreshGame();
+  } catch(e) {
+    log(`Eroare trade: ${e.data?.message || e.data?.error || e.status || 'eroare necunoscută'}`, 'error');
+  }
+}
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+buildBoard();
+loadGames();
+ 
+// Auto-load game from URL param
+const urlParams = new URLSearchParams(window.location.search);
+const gidParam = urlParams.get('game');
+if (gidParam) {
+  document.getElementById('game-id-input').value = gidParam;
+  state.gameId = parseInt(gidParam);
+  refreshGame();
+}
+ 
+// Keyboard: press R to roll
+document.addEventListener('keydown', e => {
+  if (e.key === 'r' || e.key === 'R') {
+    if (!document.activeElement || document.activeElement.tagName !== 'INPUT') rollDice();
+  }
+});
+ 
+// Resize: re-render tokens
+window.addEventListener('resize', renderTokens);
+
+// Initialize API base input to current origin for convenience
+window.addEventListener('DOMContentLoaded', () => {
+  const el = document.getElementById('api-base');
+  if (el && !el.value) {
+    el.value = window.location.origin;
+  }
+  loadGames();
+});
+
+</script>
+</body>
+</html>
