@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS players (
         ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+<<<<<<< HEAD
 
 
 -- -------------------------------------------------------------
@@ -78,6 +79,8 @@ CREATE TABLE IF NOT EXISTS owned_properties (
 DEFAULT CHARSET=utf8mb4
 COLLATE=utf8mb4_unicode_ci;
 
+=======
+>>>>>>> a4acf109e35e07ea400bf924f7d67041ddafb0be
 -- -------------------------------------------------------------
 -- 3. turns
 --    O tura = o aruncare de zaruri a unui jucator.

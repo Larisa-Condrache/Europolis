@@ -11,6 +11,7 @@ paths:
 # ─────────────────────────────────────────
 
   /games:
+<<<<<<< HEAD
     get:
       summary: Returneaza lista jocurilor existente
       tags: [Games]
@@ -23,6 +24,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Game'
+=======
+>>>>>>> a4acf109e35e07ea400bf924f7d67041ddafb0be
     post:
       summary: Creează un joc nou
       tags: [Games]
@@ -54,13 +57,21 @@ paths:
 
   /games/{gameId}:
     get:
+<<<<<<< HEAD
       summary: Returneaza starea unui joc
+=======
+      summary: Obține starea curentă a jocului
+>>>>>>> a4acf109e35e07ea400bf924f7d67041ddafb0be
       tags: [Games]
       parameters:
         - $ref: '#/components/parameters/gameId'
       responses:
         '200':
+<<<<<<< HEAD
           description: Starea jocului
+=======
+          description: Starea curentă a jocului
+>>>>>>> a4acf109e35e07ea400bf924f7d67041ddafb0be
           content:
             application/json:
               schema:
@@ -68,7 +79,11 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
     patch:
+<<<<<<< HEAD
       summary: Actualizeaza statusul jocului
+=======
+      summary: Modifică starea jocului (ex. pornire, finalizare)
+>>>>>>> a4acf109e35e07ea400bf924f7d67041ddafb0be
       tags: [Games]
       parameters:
         - $ref: '#/components/parameters/gameId'
@@ -78,7 +93,10 @@ paths:
           application/json:
             schema:
               type: object
+<<<<<<< HEAD
               required: [status]
+=======
+>>>>>>> a4acf109e35e07ea400bf924f7d67041ddafb0be
               properties:
                 status:
                   type: string
@@ -86,11 +104,16 @@ paths:
                   example: active
       responses:
         '200':
+<<<<<<< HEAD
           description: Status actualizat
+=======
+          description: Joc actualizat
+>>>>>>> a4acf109e35e07ea400bf924f7d67041ddafb0be
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Game'
+<<<<<<< HEAD
         '404':
           $ref: '#/components/responses/NotFound'
     delete:
@@ -114,6 +137,13 @@ paths:
                     example: 1
         '404':
           $ref: '#/components/responses/NotFound'
+=======
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+>>>>>>> a4acf109e35e07ea400bf924f7d67041ddafb0be
 # ─────────────────────────────────────────
 # PLAYERS
 # ─────────────────────────────────────────
@@ -1044,4 +1074,8 @@ components:
       content:
         application/json:
           schema:
+<<<<<<< HEAD
             $ref: '#/components/schemas/ErrorResponse'
+=======
+            $ref: '#/components/schemas/ErrorResponse'
+>>>>>>> a4acf109e35e07ea400bf924f7d67041ddafb0be
