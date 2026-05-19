@@ -1,0 +1,16 @@
+[Wed May 20 01:49:31 2026] PHP 8.5.5 Development Server (http://localhost:8081) started
+[Wed May 20 01:49:46 2026] [::1]:50946 Accepted
+[Wed May 20 01:49:46 2026] PHP Parse error:  syntax error, unexpected token "<<" in C:\Users\chips\Desktop\Europolis\src\Routes\games.php on line 12
+[Wed May 20 01:49:46 2026] [::1]:50946 [500]: GET /games - syntax error, unexpected token "<<" in C:\Users\chips\Desktop\Europolis\src\Routes\games.php on line 12
+[Wed May 20 01:49:46 2026] [::1]:50946 Closing
+[Wed May 20 01:50:04 2026] [::1]:50950 Accepted
+[Wed May 20 01:50:04 2026] PHP Parse error:  syntax error, unexpected token "<<" in C:\Users\chips\Desktop\Europolis\src\Routes\games.php on line 12
+[Wed May 20 01:50:04 2026] [::1]:50950 [500]: GET /games - syntax error, unexpected token "<<" in C:\Users\chips\Desktop\Europolis\src\Routes\games.php on line 12
+[Wed May 20 01:50:04 2026] [::1]:50950 Closing
+[Wed May 20 01:51:40 2026] [::1]:54709 Accepted
+[Wed May 20 01:51:40 2026] PHP Parse error:  syntax error, unexpected token "<<" in C:\Users\chips\Desktop\Europolis\src\Routes\players.php on line 12
+[Wed May 20 01:51:40 2026] [::1]:54709 [500]: GET /games - syntax error, unexpected token "<<" in C:\Users\chips\Desktop\Europolis\src\Routes\players.php on line 12
+[Wed May 20 01:51:40 2026] [::1]:54709 Closing
+[Wed May 20 01:55:16 2026] [::1]:64137 Accepted
+[Wed May 20 01:55:16 2026] [::1]:64137 [200]: GET /games
+[Wed May 20 01:55:16 2026] [::1]:64137 Closing

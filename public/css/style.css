@@ -576,6 +576,22 @@
   }
  
   /* LOG */
+  .log-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 330px;
+    min-height: 220px;
+    max-height: 42vh;
+    border-top: 1px solid var(--border);
+  }
+  .log-panel h3 {
+    flex-shrink: 0;
+  }
+  .log-panel .btn {
+    flex-shrink: 0;
+    align-self: flex-start;
+    margin-bottom: 8px !important;
+  }
   .log-list {
     padding: 0.5rem;
     display: flex;
@@ -583,8 +599,10 @@
     gap: 4px;
     overflow-y: auto;
     flex: 1;
-    min-height: 150px;
-    border-top: 1px solid var(--border);
+    min-height: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    background: rgba(245,240,232,0.55);
   }
   .log-entry {
     font-size: 11.5px;
