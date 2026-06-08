@@ -142,3 +142,50 @@ europolis/
 3. **Middleware** — activează `PlayerTurnMiddleware` și `GameStateMiddleware` pe rutele relevante
 4. **BoardService::initializeBoard()** — configurează cele 40 de căsuțe ale tablei Europolis
 5. **Testare** — PHPUnit pentru unit tests pe `Services/` și `Models/`
+
+---
+
+## Automated Testing
+
+The project uses Behat and Gherkin for automated API testing.
+
+Implemented scenarios:
+- Create game
+- Add player
+- Execute turn
+- Create trade
+
+Run tests:
+
+```bash
+vendor/bin/behat
+```
+
+Expected output:
+
+```text
+4 scenarios (4 passed)
+13 steps (13 passed)
+```
+
+## Regula de castig si faliment
+
+Jocul nu se termina atunci cand un jucator ajunge la soldul 0. Un jucator este declarat `bankrupt` doar in momentul in care trebuie sa plateasca o obligatie de joc, de exemplu chirie, taxa sau taxa de inchisoare, nu are suficienti bani si nu mai detine nicio proprietate care poate fi vanduta catre banca.
+
+Daca jucatorul nu are suficienti bani, dar mai are proprietati, serverul nu il elimina din joc. API-ul returneaza un raspuns care indica faptul ca jucatorul trebuie sa vanda active pentru a putea plati. Proprietatile vandute catre banca revin in circuitul jocului si pot fi cumparate ulterior.
+
+Dupa declararea unui jucator ca `bankrupt`, serverul verifica automat numarul jucatorilor activi. Daca ramane un singur jucator activ, jocul trece in statusul `finished`, iar raspunsul API include `winnerPlayerId` si datele castigatorului.
+
+## Testare automata pentru faliment
+
+Testele Behat/Gherkin verifica inclusiv regula de castig:
+
+- un jucator cu sold 0 ramane activ si jocul nu se termina automat;
+- un jucator fara bani si fara proprietati poate fi declarat `bankrupt`;
+- cand ramane un singur jucator activ, jocul devine `finished`, iar primul jucator este identificat ca invingator.
+
+Rulare teste:
+
+```bash
+vendor/bin/behat
+```

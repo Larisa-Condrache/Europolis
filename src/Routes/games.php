@@ -70,8 +70,8 @@ return function (App $app): void {
         $gameId = (int)$pdo->lastInsertId();
 
         $stmt = $pdo->prepare(
-            'INSERT INTO players (game_id, name, balance, position, status)
-             VALUES (:game_id, :name, 1500, 0, "active")'
+            'INSERT INTO players (game_id, name, balance, position, status, in_jail, jail_turns)
+             VALUES (:game_id, :name, 1500, 0, "active", 0, 0)'
         );
         $stmt->execute([
             'game_id' => $gameId,
@@ -87,12 +87,14 @@ return function (App $app): void {
             'status' => 'waiting',
             'maxPlayers' => $maxPlayers,
             'currentPlayerId' => $hostId,
+            'myPlayerId' => $hostId,
             'players' => [[
                 'id' => $hostId,
                 'name' => $body['hostName'],
                 'balance' => 1500,
                 'position' => 0,
                 'status' => 'active',
+                'inJail' => false,
                 'properties' => [],
             ]],
         ]);
@@ -100,6 +102,7 @@ return function (App $app): void {
 
     $app->get('/games/{gameId}', function (Request $request, Response $response, array $args): Response {
         $gameId = (int)$args['gameId'];
+        $viewerPlayerId = (int)(($request->getQueryParams()['viewerPlayerId'] ?? 0));
         $pdo = Database::getConnection();
 
         $stmt = $pdo->prepare('SELECT * FROM games WHERE id = :id');
@@ -113,6 +116,14 @@ return function (App $app): void {
             ]);
         }
 
+        if ($viewerPlayerId > 0) {
+            $stmt = $pdo->prepare('SELECT id FROM players WHERE id = :id AND game_id = :gameId');
+            $stmt->execute(['id' => $viewerPlayerId, 'gameId' => $gameId]);
+            if (!$stmt->fetch()) {
+                $viewerPlayerId = 0;
+            }
+        }
+
         $stmt = $pdo->prepare(
             'SELECT
                 p.id,
@@ -120,31 +131,55 @@ return function (App $app): void {
                 p.balance,
                 p.position,
                 p.status,
+                COALESCE(p.in_jail, 0) AS in_jail,
                 GROUP_CONCAT(op.property_tile_index ORDER BY op.property_tile_index) AS properties
              FROM players p
              LEFT JOIN owned_properties op ON op.player_id = p.id AND op.game_id = p.game_id
              WHERE p.game_id = :game_id
-             GROUP BY p.id, p.name, p.balance, p.position, p.status
+             GROUP BY p.id, p.name, p.balance, p.position, p.status, p.in_jail
              ORDER BY p.id'
         );
         $stmt->execute(['game_id' => $gameId]);
 
-        $players = array_map(fn($player) => [
-            'id' => (int)$player['id'],
-            'name' => $player['name'],
-            'balance' => (int)$player['balance'],
-            'position' => (int)$player['position'],
-            'status' => $player['status'],
-            'properties' => $player['properties']
-                ? array_map('intval', explode(',', $player['properties']))
-                : [],
-        ], $stmt->fetchAll());
+        $players = array_map(function ($player) use ($viewerPlayerId) {
+            $id = (int)$player['id'];
+            $isViewer = $viewerPlayerId > 0 && $id === $viewerPlayerId;
+
+            return [
+                'id' => $id,
+                'name' => $player['name'],
+                'balance' => $isViewer ? (int)$player['balance'] : null,
+                'balanceHidden' => !$isViewer,
+                'position' => (int)$player['position'],
+                'status' => $player['status'],
+                'inJail' => (int)$player['in_jail'] === 1,
+                'properties' => $player['properties']
+                    ? array_map('intval', explode(',', $player['properties']))
+                    : [],
+            ];
+        }, $stmt->fetchAll());
+
+        $winner = null;
+        if ($game['status'] === 'finished') {
+            foreach ($players as $candidate) {
+                if ($candidate['status'] === 'active') {
+                    $winner = [
+                        'id' => (int)$candidate['id'],
+                        'name' => $candidate['name'],
+                    ];
+                    break;
+                }
+            }
+        }
 
         return write_json($response, 200, [
             'id' => (int)$game['id'],
             'status' => $game['status'],
             'maxPlayers' => (int)$game['max_players'],
             'currentPlayerId' => $game['current_player_id'] ? (int)$game['current_player_id'] : null,
+            'viewerPlayerId' => $viewerPlayerId ?: null,
+            'winnerPlayerId' => $winner ? (int)$winner['id'] : null,
+            'winner' => $winner,
             'players' => $players,
         ]);
     });
@@ -197,8 +232,48 @@ return function (App $app): void {
             ]);
         }
 
-        $pdo->prepare('DELETE FROM games WHERE id = :id')
-            ->execute(['id' => $gameId]);
+        $pdo->beginTransaction();
+        try {
+            $pdo->prepare('UPDATE games SET current_player_id = NULL WHERE id = :id')
+                ->execute(['id' => $gameId]);
+
+            $pdo->prepare(
+                'DELETE tp
+                 FROM trade_properties tp
+                 JOIN trades t ON t.id = tp.trade_id
+                 WHERE t.game_id = :gameId'
+            )->execute(['gameId' => $gameId]);
+
+            $pdo->prepare(
+                'DELETE a
+                 FROM actions a
+                 JOIN turns t ON t.id = a.turn_id
+                 WHERE t.game_id = :gameId'
+            )->execute(['gameId' => $gameId]);
+
+            foreach ([
+                'chat_messages',
+                'trades',
+                'owned_properties',
+                'turns',
+                'players',
+                'games',
+            ] as $table) {
+                $pdo->prepare("DELETE FROM {$table} WHERE " . ($table === 'games' ? 'id' : 'game_id') . ' = :gameId')
+                    ->execute(['gameId' => $gameId]);
+            }
+
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+
+            return write_json($response, 500, [
+                'error' => 'DELETE_GAME_FAILED',
+                'message' => $e->getMessage(),
+            ]);
+        }
 
         return write_json($response, 200, [
             'message' => 'Joc sters',

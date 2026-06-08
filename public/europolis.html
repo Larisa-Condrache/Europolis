@@ -59,6 +59,7 @@
       </div>
     </details>
   </nav>
+  <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Schimba tema">Dark</button>
   <div class="header-status">
     <span id="header-game-status"></span>
     <span id="header-game-id" style="font-family:'DM Mono',monospace;font-size:12px;opacity:0.5;"></span>
@@ -121,6 +122,12 @@
         <button class="btn btn-danger btn-sm" onclick="deleteCurrentGame()">Șterge joc</button>
       </div>
     </div>
+
+    <div class="sidebar-section" id="local-player-box" style="display:none;">
+      <h3>Jucător local</h3>
+      <div id="local-player-info" class="empty-state">Nesetat</div>
+      <button class="btn btn-sm" onclick="clearMyPlayerId()">Resetează jucătorul local</button>
+    </div>
  
     <div class="sidebar-section" id="turn-controls" style="display:none;">
       <h3>Tura curentă</h3>
@@ -171,19 +178,73 @@
     </div>
   </aside>
 </div>
+
+<button class="chat-dock" id="chat-dock" onclick="openChatModal()">
+  <span>Chat</span>
+  <b id="chat-preview">Niciun mesaj inca</b>
+</button>
+
+<!-- PLAYER SELECT MODAL -->
+<div class="modal-overlay" id="player-select-modal">
+  <div class="modal player-select-modal">
+    <h2>Alege jucătorul</h2>
+    <div id="player-select-help" class="empty-state">Alege cu cine joci pe acest dispozitiv.</div>
+    <div id="player-select-list" class="player-select-list"></div>
+    <div id="player-select-join" class="player-select-join">
+      <label>Jucător nou</label>
+      <input type="text" id="player-select-name" placeholder="Nume jucător">
+      <button class="btn btn-primary" onclick="joinFromPlayerSelect()">Intră în joc</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closePlayerSelectModal()">Închide</button>
+    </div>
+  </div>
+</div>
  
+<!-- CHAT MODAL -->
+<div class="modal-overlay" id="chat-modal">
+  <div class="modal chat-modal">
+    <h2>Chat joc</h2>
+    <div id="chat-list" class="chat-list">
+      <div class="empty-state">Niciun mesaj inca</div>
+    </div>
+    <div class="chat-compose">
+      <input type="text" id="chat-message-input" maxlength="500" placeholder="Scrie mesaj...">
+      <button class="btn btn-primary btn-sm" onclick="sendChatMessage()">Trimite</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeChatModal()">Inchide</button>
+    </div>
+  </div>
+</div>
+
 <!-- TRADE MODAL -->
 <div class="modal-overlay" id="trade-modal">
-  <div class="modal">
+  <div class="modal trade-modal">
     <h2>Propunere Trade</h2>
     <label>De la jucătorul (ID)</label>
     <input type="number" id="trade-from" placeholder="ID jucător">
     <label>Către jucătorul (ID)</label>
     <input type="number" id="trade-to" placeholder="ID jucător">
     <label>Bani oferiti (€)</label>
+    <div class="trade-money-title">Bani oferiti</div>
     <input type="number" id="trade-money" placeholder="0" value="0">
     <label>ID proprietăți cerute (separate prin virgulă)</label>
     <input type="text" id="trade-props" placeholder="ex: 6,14">
+    <div class="trade-modern-picker">
+      <label>Alege jucator online</label>
+      <select id="trade-player-select" onchange="renderTradePropertyPickers()"></select>
+      <div class="trade-picker-grid">
+        <div>
+          <label>Proprietatile tale oferite</label>
+          <div id="trade-offered-props" class="trade-prop-list"></div>
+        </div>
+        <div>
+          <label>Proprietatile cerute</label>
+          <div id="trade-requested-props" class="trade-prop-list"></div>
+        </div>
+      </div>
+    </div>
 
     <div class="modal-actions">
       <button class="btn btn-primary" onclick="submitTrade()">Trimite oferta</button>
@@ -195,59 +256,97 @@
 <script>
 // ─── BOARD DATA ──────────────────────────────────────────────────────────────
 const TILES = [
-  // Bottom row (right to left, index 0-10)
-  { i:0,  name:'START',        type:'go',       color:null,     price:null,   icon:'GO' },
-  { i:1,  name:'Timișoara',    type:'property', color:'purple', price:60,     icon:null },
-  { i:2,  name:'Fond Comunitar',type:'community',color:null,    price:null,   icon:'🃏' },
-  { i:3,  name:'Arad',         type:'property', color:'purple', price:60,     icon:null },
-  { i:4,  name:'Taxă Venit',   type:'tax',      color:null,     price:200,    icon:'💰' },
-  { i:5,  name:'Gara Nord',    type:'station',  color:'gray',   price:200,    icon:'🚂' },
-  { i:6,  name:'Oradea',       type:'property', color:'teal',   price:100,    icon:null },
-  { i:7,  name:'Șansă',        type:'chance',   color:null,     price:null,   icon:'❓' },
-  { i:8,  name:'Cluj-Napoca',  type:'property', color:'teal',   price:100,    icon:null },
-  { i:9,  name:'Deva',         type:'property', color:'teal',   price:120,    icon:null },
-  { i:10, name:'Închisoare',   type:'jail',     color:null,     price:null,   icon:'🔒' },
-  // Left column (bottom to top, 11-19)
-  { i:11, name:'Sibiu',        type:'property', color:'orange', price:140,    icon:null },
-  { i:12, name:'Utilitate E',  type:'utility',  color:'gray',   price:150,    icon:'⚡' },
-  { i:13, name:'Sfântu G.',    type:'property', color:'orange', price:140,    icon:null },
-  { i:14, name:'Focșani',      type:'property', color:'orange', price:160,    icon:null },
-  { i:15, name:'Gara Sud',     type:'station',  color:'gray',   price:200,    icon:'🚂' },
-  { i:16, name:'Brașov',       type:'property', color:'red',    price:180,    icon:null },
-  { i:17, name:'Fond Comunitar',type:'community',color:null,    price:null,   icon:'🃏' },
-  { i:18, name:'Ploiești',     type:'property', color:'red',    price:180,    icon:null },
-  { i:19, name:'Pitești',      type:'property', color:'red',    price:200,    icon:null },
-  { i:20, name:'Parcare Liberă',type:'parking', color:null,     price:null,   icon:'🅿' },
-  // Top row (left to right, 21-30)
-  { i:21, name:'Craiova',      type:'property', color:'yellow', price:220,    icon:null },
-  { i:22, name:'Șansă',        type:'chance',   color:null,     price:null,   icon:'❓' },
-  { i:23, name:'Târgu Mureș',  type:'property', color:'yellow', price:220,    icon:null },
-  { i:24, name:'Constanța',    type:'property', color:'yellow', price:240,    icon:null },
-  { i:25, name:'Gara Est',     type:'station',  color:'gray',   price:200,    icon:'🚂' },
-  { i:26, name:'Galați',       type:'property', color:'green',  price:260,    icon:null },
-  { i:27, name:'Fond Comunitar',type:'community',color:null,    price:null,   icon:'🃏' },
-  { i:28, name:'Brăila',       type:'property', color:'green',  price:260,    icon:null },
-  { i:29, name:'Utilitate A',  type:'utility',  color:'gray',   price:150,    icon:'💧' },
-  { i:30, name:'Mergi la Pușcărie',type:'gotojail',color:null,  price:null,   icon:'👮' },
-  // Right column (top to bottom, 31-39)
-  { i:31, name:'Iași',         type:'property', color:'blue',   price:300,    icon:null },
-  { i:32, name:'Iași Nord',    type:'property', color:'blue',   price:300,    icon:null },
-  { i:33, name:'Fond Comunitar',type:'community',color:null,    price:null,   icon:'🃏' },
-  { i:34, name:'Suceava',      type:'property', color:'blue',   price:320,    icon:null },
-  { i:35, name:'Gara Vest',    type:'station',  color:'gray',   price:200,    icon:'🚂' },
-  { i:36, name:'Șansă',        type:'chance',   color:null,     price:null,   icon:'❓' },
-  { i:37, name:'București',    type:'property', color:'pink',   price:350,    icon:null },
-  { i:38, name:'Taxă Lux',     type:'tax',      color:null,     price:100,    icon:'💎' },
-  { i:39, name:'Parlament',    type:'property', color:'pink',   price:400,    icon:null },
+  { i:0, name:'START', type:'go', color:null, price:null, icon:'GO' },
+  { i:1, name:'Mumbai', type:'property', color:'purple', price:180 },
+  { i:2, name:'Bangkok', type:'property', color:'purple', price:180 },
+  { i:3, name:'JFK Airport', type:'station', color:'transport', price:400, icon:'AIR' },
+  { i:4, name:'Los Angeles', type:'property', color:'red', price:300 },
+  { i:5, name:'Chicago', type:'property', color:'red', price:300 },
+  { i:6, name:'Toronto', type:'property', color:'red', price:320 },
+  { i:7, name:'Închisoare Economică', type:'jail', color:null, price:null, icon:'JAIL' },
+  { i:8, name:'Madrid', type:'property', color:'orange', price:240 },
+  { i:9, name:'Roma', type:'property', color:'orange', price:220 },
+  { i:10, name:'Viena', type:'property', color:'orange', price:220 },
+  { i:11, name:'Șansă Globală', type:'chance', color:null, price:null, icon:'?' },
+  { i:12, name:'Amsterdam', type:'property', color:'yellow', price:280 },
+  { i:13, name:'Bruxelles', type:'property', color:'yellow', price:280 },
+  { i:14, name:'Stockholm', type:'property', color:'yellow', price:300 },
+  { i:15, name:'Heathrow Airport', type:'station', color:'transport', price:400, icon:'AIR' },
+  { i:16, name:'Casablanca', type:'property', color:'lightblue', price:120 },
+  { i:17, name:'Cairo', type:'property', color:'lightblue', price:120 },
+  { i:18, name:'Lagos', type:'property', color:'lightblue', price:100 },
+  { i:19, name:'Taxe Internaționale', type:'tax', color:null, price:200, icon:'TAX' },
+  { i:20, name:'București', type:'property', color:'brown', price:60 },
+  { i:21, name:'Sofia', type:'property', color:'brown', price:60 },
+  { i:22, name:'Șansă Globală', type:'chance', color:null, price:null, icon:'?' },
+  { i:23, name:'Mexico City', type:'property', color:'pink', price:140 },
+  { i:24, name:'Buenos Aires', type:'property', color:'pink', price:140 },
+  { i:25, name:'Santiago', type:'property', color:'pink', price:160 },
+  { i:26, name:'Jackpot Economic', type:'jackpot', color:null, price:null, icon:'JACK' },
+  { i:27, name:'Dubai', type:'property', color:'black', price:600 },
+  { i:28, name:'Tokyo', type:'property', color:'black', price:600 },
+  { i:29, name:'Dubai International Airport', type:'station', color:'transport', price:500, icon:'AIR' },
+  { i:30, name:'Hong Kong', type:'property', color:'cyan', price:420 },
+  { i:31, name:'Shanghai', type:'property', color:'cyan', price:420 },
+  { i:32, name:'Beijing', type:'property', color:'cyan', price:400 },
+  { i:33, name:'Fond de Investiții', type:'fund', color:null, price:null, icon:'FOND' },
+  { i:34, name:'Singapore', type:'property', color:'green', price:380 },
+  { i:35, name:'Paris', type:'property', color:'green', price:350 },
+  { i:36, name:'Berlin', type:'property', color:'green', price:350 },
 ];
- 
+
+const BOARD_SIZE = 37;
+const JAIL_INDEX = 7;
+
 const COLOR_CSS = {
-  purple: '#7B4FBF', teal: '#1A8C8C', orange: '#D4621A',
-  red: '#C03030', yellow: '#C9A020', green: '#2D8B40',
-  blue: '#1A5FA0', pink: '#B83070', gray: '#888'
+  brown: '#7A4A23', lightblue: '#55C7E7', pink: '#D93E85',
+  orange: '#F28B28', red: '#D33A32', yellow: '#F1CF2E',
+  green: '#2CA34A', darkblue: '#123C7C', purple: '#7B4FBF',
+  cyan: '#16B7C9', black: '#111315', transport: '#0E334D',
+  utility: '#56616A', gray: '#888'
 };
- 
+
+const CITY_POINTS = [
+  ['București', 44.4268, 26.1025, 'brown'], ['Sofia', 42.6977, 23.3219, 'brown'],
+  ['Casablanca', 33.5731, -7.5898, 'lightblue'], ['Cairo', 30.0444, 31.2357, 'lightblue'], ['Lagos', 6.5244, 3.3792, 'lightblue'],
+  ['Mexico City', 19.4326, -99.1332, 'pink'], ['Buenos Aires', -34.6037, -58.3816, 'pink'], ['Santiago', -33.4489, -70.6693, 'pink'],
+  ['Madrid', 40.4168, -3.7038, 'orange'], ['Roma', 41.9028, 12.4964, 'orange'], ['Viena', 48.2082, 16.3738, 'orange'],
+  ['Toronto', 43.6532, -79.3832, 'red'], ['Chicago', 41.8781, -87.6298, 'red'], ['Los Angeles', 34.0522, -118.2437, 'red'],
+  ['Amsterdam', 52.3676, 4.9041, 'yellow'], ['Bruxelles', 50.8503, 4.3517, 'yellow'], ['Stockholm', 59.3293, 18.0686, 'yellow'],
+  ['Berlin', 52.5200, 13.4050, 'green'], ['Paris', 48.8566, 2.3522, 'green'], ['Singapore', 1.3521, 103.8198, 'green'],
+  ['Londra', 51.5072, -0.1276, 'darkblue'], ['New York', 40.7128, -74.0060, 'darkblue'],
+  ['Bangkok', 13.7563, 100.5018, 'purple'], ['Mumbai', 19.0760, 72.8777, 'purple'], ['Seul', 37.5665, 126.9780, 'purple'],
+  ['Beijing', 39.9042, 116.4074, 'cyan'], ['Shanghai', 31.2304, 121.4737, 'cyan'], ['Hong Kong', 22.3193, 114.1694, 'cyan'],
+  ['Tokyo', 35.6762, 139.6503, 'black'], ['Dubai', 25.2048, 55.2708, 'black']
+];
+
+const AIRPORT_POINTS = [
+  ['Heathrow', 51.4700, -0.4543], ['JFK', 40.6413, -73.7781],
+  ['Changi', 1.3644, 103.9915], ['Dubai Intl', 25.2532, 55.3657]
+];
+
+const AIR_ROUTES = [
+  ['JFK', 'Heathrow'], ['Heathrow', 'Dubai Intl'], ['Dubai Intl', 'Changi'],
+  ['Changi', 'JFK'], ['Heathrow', 'Changi'], ['Dubai Intl', 'JFK']
+];
+const BOARD_IMAGE = 'images/Europolis_Board.png';
+const BOARD_HOTSPOTS = {
+  0:[5,92], 1:[5,77.5], 2:[5,67.5], 3:[5,58], 4:[5,42], 5:[5,31], 6:[5,21], 7:[5,7.5],
+  8:[14.5,7], 9:[22,7], 10:[28,7], 11:[35.2,7], 12:[42.3,7], 13:[49.8,7], 14:[57.3,7],
+  15:[64.6,7], 16:[72.3,7], 17:[79.4,7], 18:[86.6,7], 19:[95.4,7], 20:[93.5,23],
+  21:[93.5,34], 22:[93.5,46], 23:[93.4,58.5], 24:[93.4,70], 25:[93.4,81], 26:[95,92],
+  27:[80.3,94.5], 28:[73,94.5], 29:[65.8,94.5], 30:[58.5,94.5], 31:[51.5,94.5],
+  32:[44.5,94.5], 33:[36.8,94.5], 34:[29.8,94.5], 35:[22.5,94.5], 36:[15,94.5]
+};
 const PLAYER_COLORS = ['#B83232','#1E4A7A','#2D6B3C','#8B6914','#5B2D8C','#1A6B6B'];
+const PLAYER_TOKENS = [
+  { icon:'🚗', label:'Masina' },
+  { icon:'✈️', label:'Avion' },
+  { icon:'🏍️', label:'Motocicleta' },
+  { icon:'🚢', label:'Vapor' },
+  { icon:'🚆', label:'Tren' },
+  { icon:'🚁', label:'Elicopter' },
+];
  
 // ─── STATE ───────────────────────────────────────────────────────────────────
 let state = {
@@ -262,111 +361,153 @@ let state = {
   diceRolled: false,
   trades: [],
   properties: [],
+  chatMessages: [],
+  playerSelectDismissed: false,
+
+  // Jucătorul local este salvat separat pe fiecare joc și browser.
+  // Astfel fiecare vede doar datele lui private.
+  myPlayerId: 0,
 };
+
+function localPlayerStorageKey(gameId = state.gameId) {
+  return gameId ? `europolisMyPlayerId:${gameId}` : 'europolisMyPlayerId';
+}
+
+function loadLocalPlayerId(gameId = state.gameId) {
+  const scoped = gameId ? localStorage.getItem(localPlayerStorageKey(gameId)) : null;
+  const legacy = localStorage.getItem('europolisMyPlayerId');
+  return parseInt(scoped || legacy || '0', 10);
+}
+
+function setMyPlayerId(playerId) {
+  const id = parseInt(playerId || 0, 10);
+  if (!id) return;
+
+  state.myPlayerId = id;
+  localStorage.setItem(localPlayerStorageKey(), String(id));
+  log(`Acest calculator joacă drept jucătorul #${id}`, 'success');
+}
+
+function clearMyPlayerId() {
+  if (state.gameId) localStorage.removeItem(localPlayerStorageKey());
+  state.myPlayerId = 0;
+  state.playerSelectDismissed = false;
+  localStorage.removeItem('europolisMyPlayerId');
+  log('Jucătorul local a fost resetat pe acest calculator.', 'info');
+  renderPlayers();
+  renderGameSummary();
+  renderLocalPlayerBox();
+  maybeShowPlayerSelect();
+}
+
+function isMyTurn() {
+  return !!state.game && !!state.myPlayerId && state.game.currentPlayerId === state.myPlayerId;
+}
+
+function getMyPlayer() {
+  return state.players.find(p => p.id === state.myPlayerId) || null;
+}
+
+function getPlayerToken(idx) {
+  return PLAYER_TOKENS[idx % PLAYER_TOKENS.length];
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[ch]));
+}
+
+function controlsById(id) {
+  return Array.from(document.querySelectorAll(`[id="${id}"]`));
+}
+
+function controlValue(id) {
+  const controls = controlsById(id);
+  const filled = controls.find(el => String(el.value || '').trim() !== '');
+  return String((filled || controls[0])?.value || '');
+}
+
+function setControlValue(id, value) {
+  controlsById(id).forEach(el => {
+    el.value = value;
+  });
+}
+
+function applyTheme(theme = localStorage.getItem('europolisTheme') || 'light') {
+  const isDark = theme === 'dark';
+  document.body.classList.toggle('dark-mode', isDark);
+  localStorage.setItem('europolisTheme', isDark ? 'dark' : 'light');
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = isDark ? 'Light' : 'Dark';
+}
+
+function toggleTheme() {
+  applyTheme(document.body.classList.contains('dark-mode') ? 'light' : 'dark');
+}
+
+function startAutoRefresh() {
+  if (window._gameInterval) return;
+
+  window._gameInterval = setInterval(async () => {
+    if (!state.gameId) {
+      await loadGames(true);
+      return;
+    }
+
+    await refreshGame(true);
+    await loadGames(true);
+  }, 2500);
+}
  
 // ─── BOARD RENDERING ─────────────────────────────────────────────────────────
 function buildBoard() {
   const board = document.getElementById('board');
   board.innerHTML = '';
- 
-  // We fill an 11x11 grid. Positions:
-  // Row 11 (bottom): cols 1-11 → tiles 0-10 (right to left)
-  // Col 1 (left): rows 10-2 → tiles 11-19 (bottom to top)
-  // Row 1 (top): cols 1-11 → tiles 20-30 (left to right)
-  // Col 11 (right): rows 2-10 → tiles 31-39 (top to bottom)
- 
-  const grid = Array.from({length:11}, () => Array(11).fill(null));
- 
-  // Bottom row: tile 0 at col 10 (index 0-10, right to left: col = 10-i)
-  for (let i = 0; i <= 10; i++) grid[10][10-i] = i;
-  // Left col: tiles 11-19, row 9 down to 1
-  for (let i = 0; i <= 8; i++) grid[9-i][0] = 11+i;
-  // Top row: tiles 20-30, col 0 to 10
-  for (let i = 0; i <= 10; i++) grid[0][i] = 20+i;
-  // Right col: tiles 31-39, row 1 to 9
-  for (let i = 0; i <= 8; i++) grid[1+i][10] = 31+i;
- 
-  for (let r = 0; r < 11; r++) {
-    for (let c = 0; c < 11; c++) {
-      const tileIdx = grid[r][c];
-      if (r > 0 && r < 10 && c > 0 && c < 10) {
-        // Center cell (empty — covered by center panel)
-        const div = document.createElement('div');
-        div.style.background = 'var(--cream)';
-        board.appendChild(div);
-        continue;
-      }
-      const tile = tileIdx !== null ? TILES[tileIdx] : null;
-      const div = document.createElement('div');
-      div.className = 'cell';
-      if (!tile) { board.appendChild(div); continue; }
- 
-      const isCorner = (r===0&&c===0)||(r===0&&c===10)||(r===10&&c===0)||(r===10&&c===10);
-      if (isCorner) div.classList.add('corner');
-      if (c===0 && !isCorner) div.classList.add('side-left');
-      if (c===10 && !isCorner) div.classList.add('side-right');
- 
-      div.id = `cell-${tile.i}`;
-      div.dataset.idx = tile.i;
-      div.title = `${tile.name}${tile.price ? ' — €'+tile.price : ''}`;
- 
-      if (tile.color && tile.type === 'property') {
-        const bar = document.createElement('div');
-        bar.className = 'cell-color-bar';
-        bar.style.background = COLOR_CSS[tile.color] || '#ccc';
-        div.appendChild(bar);
-      }
- 
-      if (tile.icon) {
-        const icon = document.createElement('div');
-        icon.className = 'cell-icon';
-        icon.textContent = tile.icon;
-        if (tile.type === 'go') {
-          icon.style.fontSize = '14px';
-          icon.style.fontWeight = '900';
-          icon.style.fontFamily = "'Playfair Display',serif";
-          icon.style.color = 'var(--red)';
-        }
-        div.appendChild(icon);
-      }
- 
-      const name = document.createElement('div');
-      name.className = 'cell-name';
-      name.textContent = tile.name;
-      div.appendChild(name);
- 
-      if (tile.price) {
-        const price = document.createElement('div');
-        price.className = 'cell-price';
-        price.textContent = '€' + tile.price;
-        div.appendChild(price);
-      }
- 
-      board.appendChild(div);
-    }
-  }
- 
-  // Center overlay
-  const center = document.createElement('div');
-  center.className = 'center-panel';
-  center.id = 'center-panel';
-  center.innerHTML = `
-    <div class="game-logo">EURO<span>POLIS</span></div>
-    <div class="game-subtitle">Joc de strategie</div>
-    <div style="margin:8px 0;" id="center-dice">
-      <div class="dice-area">
-        <div class="die" id="die1">-</div>
-        <div class="die" id="die2">-</div>
-      </div>
+
+  const img = document.createElement('img');
+  img.className = 'board-art';
+  img.src = BOARD_IMAGE;
+  img.alt = 'Europolis Global board';
+  board.appendChild(img);
+
+  TILES.forEach(tile => {
+    const pos = BOARD_HOTSPOTS[tile.i];
+    if (!pos) return;
+
+    const hotspot = document.createElement('button');
+    hotspot.type = 'button';
+    hotspot.className = 'board-hotspot';
+    hotspot.id = `cell-${tile.i}`;
+    hotspot.dataset.idx = tile.i;
+    hotspot.title = `${tile.name}${tile.price ? ' - M'+tile.price : ''}`;
+    hotspot.setAttribute('aria-label', hotspot.title);
+    hotspot.style.left = `${pos[0]}%`;
+    hotspot.style.top = `${pos[1]}%`;
+    board.appendChild(hotspot);
+  });
+
+  const hud = document.createElement('div');
+  hud.className = 'board-hud';
+  hud.innerHTML = `
+    <div class="dice-area">
+      <div class="die" id="die1">-</div>
+      <div class="die" id="die2">-</div>
     </div>
-    <div id="center-info" style="font-size:12px;color:var(--ink-muted);text-align:center;"></div>
+    <div id="center-info"></div>
   `;
-  document.querySelector('.board-wrap').appendChild(center);
+  document.querySelector('.board-wrap').appendChild(hud);
 }
- 
+
+
 // ─── CELL POSITION MAPPING (for tokens) ──────────────────────────────────────
 function getCellCenter(tileIdx) {
-  const cell = document.getElementById(`cell-${tileIdx}`);
+  const normalizedIdx = TILES[tileIdx] ? tileIdx : 0;
+  const cell = document.getElementById(`cell-${normalizedIdx}`);
   if (!cell) return null;
   const bw = document.querySelector('.board-wrap');
   const br = bw.getBoundingClientRect();
@@ -384,12 +525,13 @@ function renderTokens() {
     if (p.status === 'bankrupt') return;
     const pos = getCellCenter(p.position);
     if (!pos) return;
+    const tokenData = getPlayerToken(idx);
     const token = document.createElement('div');
     token.className = 'token';
-    token.style.background = PLAYER_COLORS[idx % PLAYER_COLORS.length];
-    token.style.left = (pos.x - 7 + (idx%3)*10 - 10) + 'px';
-    token.style.top  = (pos.y - 7 + Math.floor(idx/3)*10 - 5) + 'px';
-    token.textContent = p.name[0].toUpperCase();
+    token.style.setProperty('--token-color', PLAYER_COLORS[idx % PLAYER_COLORS.length]);
+    token.style.left = (pos.x - 13 + (idx%3)*14 - 14) + 'px';
+    token.style.top  = (pos.y - 14 + Math.floor(idx/3)*13 - 7) + 'px';
+    token.textContent = tokenData.icon;
     token.title = p.name + ' — poziția ' + p.position;
     layer.appendChild(token);
   });
@@ -405,14 +547,18 @@ function renderPlayers() {
   list.innerHTML = '';
   state.players.forEach((p, idx) => {
     const isCurrent = state.game && state.game.currentPlayerId === p.id;
+    const tokenData = getPlayerToken(idx);
     const div = document.createElement('div');
     div.className = 'player-card' + (isCurrent ? ' active' : '') + (p.status==='bankrupt'?' bankrupt':'');
     div.innerHTML = `
-      <div class="player-avatar" style="background:${PLAYER_COLORS[idx%6]};color:white;">${p.name[0].toUpperCase()}</div>
+      <div class="player-avatar vehicle-avatar" style="--token-color:${PLAYER_COLORS[idx % PLAYER_COLORS.length]};" title="${tokenData.label}">${tokenData.icon}</div>
       <div class="player-info">
         <div class="player-name">${p.name} <span class="id-chip">ID ${p.id}</span></div>
-        <div class="player-balance">€${p.balance}</div>
-        <div class="player-pos">Pos: ${p.position} · Prop: ${(p.properties || []).join(', ') || '-'} · <span class="pill ${p.status}">${p.status}</span></div>
+        <div class="player-balance">
+          ${p.id === state.myPlayerId ? '€' + (p.balance ?? 0) : 'Bani ascunși'}
+          ${p.id === state.myPlayerId ? '<span class="id-chip">tu</span>' : ''}
+        </div>
+        <div class="player-pos">Pos: ${p.position} · <span class="pill ${p.status}">${p.status}</span></div>
       </div>
       ${isCurrent ? '<span class="current-badge">tură</span>' : ''}
       <button class="icon-danger" title="Șterge jucătorul" onclick="deletePlayer(${p.id})">×</button>
@@ -430,14 +576,111 @@ function renderGameSummary() {
   }
 
   const current = state.players.find(p => p.id === state.game.currentPlayerId);
+  const mine = getMyPlayer();
   box.innerHTML = `
     <div class="summary-grid">
       <div><span>Joc</span><b>#${state.game.id}</b></div>
       <div><span>Status</span><b>${state.game.status}</b></div>
       <div><span>Jucători</span><b>${state.players.length}/${state.game.maxPlayers}</b></div>
       <div><span>Tura</span><b>${current ? `${current.name} (#${current.id})` : '-'}</b></div>
+      <div><span>Eu joc drept</span><b>${mine ? `${mine.name} (#${mine.id})` : 'nesetat'}</b></div>
+      <div><span>Control</span><b>${isMyTurn() ? 'este tura mea' : 'aștept'}</b></div>
     </div>
   `;
+}
+
+function renderLocalPlayerBox() {
+  const box = document.getElementById('local-player-box');
+  const info = document.getElementById('local-player-info');
+  if (!box || !info) return;
+
+  if (!state.game) {
+    box.style.display = 'none';
+    return;
+  }
+
+  box.style.display = 'block';
+  const mine = getMyPlayer();
+
+  if (!mine) {
+    info.innerHTML = state.myPlayerId
+      ? `Acest calculator are salvat ID ${state.myPlayerId}, dar jucătorul nu există în jocul curent.<br><button class="btn btn-sm" onclick="openPlayerSelectModal()">Alege jucător</button>`
+      : 'Acest calculator nu are încă jucător local.<br><button class="btn btn-sm" onclick="openPlayerSelectModal()">Alege jucător</button>';
+    return;
+  }
+
+  info.innerHTML = `
+    <b>${mine.name}</b> <span class="id-chip">ID ${mine.id}</span><br>
+    Bani: <b>€${mine.balance ?? 0}</b><br>
+    Poziție: ${mine.position}<br>
+    ${isMyTurn() ? '<span class="pill active">este tura ta</span>' : '<span class="pill waiting">așteaptă tura</span>'}<br>
+    <button class="btn btn-sm" onclick="openPlayerSelectModal()">Schimbă jucător</button>
+  `;
+}
+
+function openPlayerSelectModal(force = false) {
+  if (!state.game) return;
+  const modal = document.getElementById('player-select-modal');
+  if (!modal) return;
+  renderPlayerSelectModal();
+  modal.classList.add('open');
+  modal.dataset.force = force ? '1' : '0';
+}
+
+function closePlayerSelectModal() {
+  const modal = document.getElementById('player-select-modal');
+  if (modal) modal.classList.remove('open');
+  state.playerSelectDismissed = true;
+}
+
+function maybeShowPlayerSelect() {
+  if (!state.game || getMyPlayer() || state.playerSelectDismissed) return;
+  openPlayerSelectModal(true);
+}
+
+function renderPlayerSelectModal() {
+  const help = document.getElementById('player-select-help');
+  const list = document.getElementById('player-select-list');
+  const joinBox = document.getElementById('player-select-join');
+  if (!help || !list || !joinBox) return;
+
+  const canJoin = state.game?.status === 'waiting' && state.players.length < (state.game.maxPlayers || 0);
+  help.textContent = `Joc #${state.gameId} · ${state.players.length}/${state.game.maxPlayers} jucători`;
+  list.innerHTML = '';
+
+  state.players.forEach((p, idx) => {
+    const tokenData = getPlayerToken(idx);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'player-select-option' + (p.id === state.myPlayerId ? ' selected' : '');
+    btn.onclick = () => selectExistingPlayer(p.id);
+    btn.innerHTML = `
+      <span class="player-avatar vehicle-avatar" style="--token-color:${PLAYER_COLORS[idx % PLAYER_COLORS.length]};">${tokenData.icon}</span>
+      <span><b>${p.name}</b><small>ID ${p.id}${state.game.currentPlayerId === p.id ? ' · primul la tură' : ''}</small></span>
+    `;
+    list.appendChild(btn);
+  });
+
+  joinBox.style.display = canJoin ? 'block' : 'none';
+}
+
+function selectExistingPlayer(playerId) {
+  setMyPlayerId(playerId);
+  closePlayerSelectModal();
+  renderPlayers();
+  renderGameSummary();
+  renderLocalPlayerBox();
+  refreshGame(true);
+}
+
+async function joinFromPlayerSelect() {
+  const input = document.getElementById('player-select-name');
+  const sidebarInput = document.getElementById('new-player-name');
+  const name = (input?.value || '').trim();
+  if (!name) { log('Introdu un nume pentru jucător.', 'error'); return; }
+  setControlValue('new-player-name', name);
+  await joinGame();
+  closePlayerSelectModal();
 }
 
 function renderProperties() {
@@ -447,28 +690,118 @@ function renderProperties() {
     return;
   }
 
-  const owned = (state.properties || []).filter(p => p.ownerId);
+  if (!state.myPlayerId) {
+    list.innerHTML = '<div class="empty-state">Alege jucatorul local ca sa vezi proprietatile tale</div>';
+    return;
+  }
+
+  const owned = (state.properties || []).filter(p => p.ownerId === state.myPlayerId);
   if (!owned.length) {
     list.innerHTML = '<div class="empty-state">Nicio proprietate cumpărată încă</div>';
     return;
   }
 
-  list.innerHTML = owned.map(p => `
+  list.innerHTML = owned.map(p => {
+    const refund = Math.floor((p.purchasePrice || p.price || 0) / 2);
+    const ownedNames = new Set(owned.filter(item => item.type === 'property').map(item => item.name));
+    const hasFullGroup = (p.groupMembers || []).every(name => ownedNames.has(name));
+    const canUpgrade = p.type === 'property' && hasFullGroup && (p.upgradeLevel || 0) < 4;
+    const upgradeCost = p.nextUpgradeCost || 0;
+    const rentInfo = p.rent ? `Chirie M${p.rent}` : 'Fara chirie';
+    return `
     <div class="property-row">
       <div>
         <b>${p.name}</b>
+        <em>${rentInfo} · ${p.upgradeLabel || 'Fara upgrade'}</em>
         <span>Tile ${p.tileIndex} · ${p.group || p.type}</span>
       </div>
-      <em>${p.ownerName || ('#' + p.ownerId)}</em>
+      <div class="property-actions">
+        ${canUpgrade ? `
+          <button class="btn-upgrade" onclick="upgradeProperty(${p.tileIndex})">
+            Upgrade M${upgradeCost}
+          </button>
+        ` : ''}
+        ${p.ownerId === state.myPlayerId ? `
+          <button class="btn-sell" onclick="sellProperty(${p.tileIndex}, ${p.ownerId})">
+            Vinde +${refund}
+          </button>
+        ` : ''}
+      </div>
+    </div>
+  `;
+  }).join('');
+}
+
+function renderChat() {
+  const preview = document.getElementById('chat-preview');
+  const list = document.getElementById('chat-list');
+  const latest = state.chatMessages[state.chatMessages.length - 1];
+
+  if (preview) {
+    preview.textContent = latest
+      ? `${latest.playerName}: ${latest.message}`
+      : 'Niciun mesaj inca';
+  }
+
+  if (!list) return;
+
+  if (!state.chatMessages.length) {
+    list.innerHTML = '<div class="empty-state">Niciun mesaj inca</div>';
+    return;
+  }
+
+  list.innerHTML = state.chatMessages.map(msg => `
+    <div class="chat-message ${msg.playerId === state.myPlayerId ? 'mine' : ''}">
+      <div>
+        <b>${escapeHtml(msg.playerName || '#' + msg.playerId)}</b>
+        <small>${escapeHtml(new Date(msg.createdAt).toLocaleTimeString('ro', {hour:'2-digit', minute:'2-digit'}))}</small>
+      </div>
+      <p>${escapeHtml(msg.message)}</p>
     </div>
   `).join('');
+  list.scrollTop = list.scrollHeight;
+}
+
+function openChatModal() {
+  const modal = document.getElementById('chat-modal');
+  if (modal) modal.classList.add('open');
+  renderChat();
+  setTimeout(() => document.getElementById('chat-message-input')?.focus(), 50);
+}
+
+function closeChatModal() {
+  document.getElementById('chat-modal')?.classList.remove('open');
+}
+
+async function sendChatMessage() {
+  const input = document.getElementById('chat-message-input');
+  const message = (input?.value || '').trim();
+
+  if (!state.gameId) { log('Alege un joc inainte de chat.', 'error'); return; }
+  if (!state.myPlayerId) { log('Alege jucatorul local inainte de chat.', 'error'); return; }
+  if (!message) return;
+
+  try {
+    const msg = await apiFetch('POST', `/games/${state.gameId}/chat`, {
+      playerId: state.myPlayerId,
+      message,
+    });
+    state.chatMessages.push(msg);
+    if (input) input.value = '';
+    renderChat();
+  } catch(e) {
+    log(`Eroare chat: ${e.data?.message || e.data?.error || e.status}`, 'error');
+  }
 }
 
 function renderGames() {
-  const list = document.getElementById('games-list');
+  const lists = controlsById('games-list');
+  const list = lists[0];
   const games = state.games.filter(g => state.gameFilter === 'all' || g.status === state.gameFilter);
 
   if (!games.length) {
+    lists.forEach(list => { list.innerHTML = '<div class="empty-state">Nu exista jocuri pentru filtrul ales</div>'; });
+    return;
     list.innerHTML = '<div class="empty-state">Nu există jocuri pentru filtrul ales</div>';
     return;
   }
@@ -483,31 +816,36 @@ function renderGames() {
       <button class="icon-danger" title="Șterge jocul" onclick="deleteGame(${g.id}, event)">×</button>
     </div>
   `).join('');
+  lists.slice(1).forEach(otherList => { otherList.innerHTML = list.innerHTML; });
 }
 
 function setGameFilter(filter) {
   state.gameFilter = filter;
   ['all', 'active', 'waiting'].forEach(name => {
-    const btn = document.getElementById('filter-' + name);
-    if (btn) btn.classList.toggle('active-filter', name === filter);
+    controlsById('filter-' + name).forEach(btn => {
+      btn.classList.toggle('active-filter', name === filter);
+    });
   });
   renderGames();
 }
 
-async function loadGames() {
+async function loadGames(silent = false) {
   try {
     state.games = await apiFetch('GET', '/games');
     renderGames();
   } catch(e) {
-    document.getElementById('games-list').innerHTML = '<div class="empty-state">API indisponibil</div>';
-    log(`Nu pot încărca jocurile: ${e.data?.message || e.data?.error || e.status}`, 'error');
+    controlsById('games-list').forEach(list => {
+      list.innerHTML = '<div class="empty-state">API indisponibil</div>';
+    });
+    if (!silent) log(`Nu pot încărca jocurile: ${e.data?.message || e.data?.error || e.status}`, 'error');
   }
 }
 
 async function selectGame(gameId) {
   state.gameId = gameId;
-  document.getElementById('game-id-input').value = gameId;
+  setControlValue('game-id-input', gameId);
   await refreshGame();
+  startAutoRefresh();
 }
 
 function updateHeader() {
@@ -520,7 +858,7 @@ function updateHeader() {
  
 // ─── API ─────────────────────────────────────────────────────────────────────
 function api() {
-  const val = document.getElementById('api-base').value.trim();
+  const val = controlValue('api-base').trim();
   return (val || window.location.origin).replace(/\/$/, '');
 }
  
@@ -555,15 +893,20 @@ function clearLog() { document.getElementById('log-list').innerHTML = ''; }
  
 // ─── GAME ACTIONS ─────────────────────────────────────────────────────────────
 async function createGame() {
-  const hostName = document.getElementById('host-name').value.trim();
-  const maxPlayers = parseInt(document.getElementById('max-players').value);
+  const hostName = controlValue('host-name').trim();
+  const maxPlayers = parseInt(controlValue('max-players'));
   if (!hostName) { log('Introdu numele host-ului', 'error'); return; }
   try {
     const data = await apiFetch('POST', '/games', { hostName, maxPlayers });
     state.gameId = data.id;
     state.game = data;
     state.players = data.players || [];
-    document.getElementById('game-id-input').value = data.id;
+    state.playerSelectDismissed = false;
+
+    const createdPlayerId = data.player?.id || data.players?.[0]?.id || data.hostPlayerId || data.currentPlayerId;
+    setMyPlayerId(createdPlayerId);
+
+    setControlValue('game-id-input', data.id);
     log(`Joc creat cu ID #${data.id}. Bun venit, ${hostName}!`, 'success');
     onGameLoaded();
     await loadGames();
@@ -574,18 +917,19 @@ async function createGame() {
  
 async function joinGame() {
   if (!state.gameId) { log('Crează sau încarcă un joc mai întâi', 'error'); return; }
-  const name = document.getElementById('new-player-name').value.trim();
+  const name = controlValue('new-player-name').trim();
   if (!name) { log('Introdu un nume', 'error'); return; }
   try {
     const data = await apiFetch('POST', `/games/${state.gameId}/players`, { name });
-    log(`${name} s-a alăturat jocului (ID: ${data.id})`, 'success');
+
+    const joinedPlayerId = data.player?.id || data.id || data.playerId;
+    setMyPlayerId(joinedPlayerId);
+    state.playerSelectDismissed = false;
+
+    log(`${name} s-a alăturat jocului (ID: ${joinedPlayerId || data.id})`, 'success');
     await refreshGame();
     await loadGames();
-    if (!window._gameInterval) {
-    window._gameInterval = setInterval(() => {
-      if (state.gameId) refreshGame();
-    }, 5000);
-  }
+    startAutoRefresh();
   } catch(e) {
     log(`Eroare alăturare: ${e.data?.message || e.status}`, 'error');
   }
@@ -618,10 +962,12 @@ async function deleteGame(gameId, event) {
       state.players = [];
       state.properties = [];
       state.trades = [];
-      document.getElementById('game-id-input').value = '';
+      state.chatMessages = [];
+      setControlValue('game-id-input', '');
       renderPlayers();
       renderGameSummary();
       renderProperties();
+      renderChat();
       document.getElementById('game-controls').style.display = 'none';
       document.getElementById('turn-controls').style.display = 'none';
     }
@@ -644,6 +990,9 @@ async function deletePlayer(playerId) {
 
   try {
     await apiFetch('DELETE', `/games/${state.gameId}/players/${playerId}`);
+    if (playerId === state.myPlayerId) {
+      clearMyPlayerId();
+    }
     log(`Jucător #${playerId} șters`, 'success');
     await refreshGame();
     await loadGames();
@@ -651,18 +1000,62 @@ async function deletePlayer(playerId) {
     log(`Eroare ștergere jucător: ${e.data?.message || e.data?.error || e.status}`, 'error');
   }
 }
- 
-async function loadGame() {
-  const gid = parseInt(document.getElementById('game-id-input').value);
-  if (!gid) { log('Introdu un Game ID valid', 'error'); return; }
-  state.gameId = gid;
-  await refreshGame();
+
+async function sellProperty(propertyId, playerId) {
+  if (!state.gameId || !propertyId || !playerId) return;
+
+  if (playerId !== state.myPlayerId) {
+    log('Poți vinde doar proprietățile tale de pe acest calculator.', 'error');
+    return;
+  }
+
+  const property = (state.properties || []).find(p => p.tileIndex === propertyId);
+  const refund = Math.floor((property?.purchasePrice || property?.price || 0) / 2);
+  const ok = confirm(`Vinzi ${property?.name || 'proprietatea'} catre banca pentru ${refund}?`);
+  if (!ok) return;
+
+  try {
+    const data = await apiFetch('POST', `/games/${state.gameId}/properties/${propertyId}/sell`, { playerId });
+    log(`${data.soldProperty?.name || 'Proprietate'} vanduta catre banca (+${data.refund})`, 'success');
+    await refreshGame();
+    await loadGames();
+  } catch(e) {
+    log(`Eroare vanzare: ${e.data?.message || e.data?.error || e.status}`, 'error');
+  }
+}
+
+async function upgradeProperty(propertyId) {
+  if (!state.gameId || !propertyId || !state.myPlayerId) return;
+
+  try {
+    const data = await apiFetch('POST', `/games/${state.gameId}/properties/${propertyId}/buildings`, {
+      playerId: state.myPlayerId
+    });
+    log(`Upgrade facut: ${data.upgradeLabel} pentru proprietatea #${propertyId}. Cost M${data.cost}. Chirie noua: M${data.rent}`, 'success');
+    await refreshGame();
+  } catch(e) {
+    log(`Eroare upgrade: ${e.data?.message || e.data?.error || e.status}`, 'error');
+  }
 }
  
-async function refreshGame() {
+async function loadGame() {
+  const gid = parseInt(controlValue('game-id-input'));
+  if (!gid) { log('Introdu un Game ID valid', 'error'); return; }
+  state.gameId = gid;
+  state.myPlayerId = loadLocalPlayerId(gid);
+  state.playerSelectDismissed = false;
+  await refreshGame();
+  startAutoRefresh();
+}
+ 
+async function refreshGame(silent = false) {
   if (!state.gameId) return;
+  if (!state.myPlayerId) {
+    state.myPlayerId = loadLocalPlayerId(state.gameId);
+  }
   try {
-    const data = await apiFetch('GET', `/games/${state.gameId}`);
+    const viewer = state.myPlayerId ? `?viewerPlayerId=${state.myPlayerId}` : '';
+    const data = await apiFetch('GET', `/games/${state.gameId}${viewer}`);
     state.game = data;
     state.players = data.players || [];
     state.currentTurnId = data.currentTurnId || state.currentTurnId;
@@ -675,21 +1068,36 @@ async function refreshGame() {
     } catch {}
 
     try {
+      state.chatMessages = await apiFetch('GET', `/games/${state.gameId}/chat?limit=40`);
+    } catch { state.chatMessages = []; }
+
+    try {
       state.properties = await apiFetch('GET', `/games/${state.gameId}/properties`);
     } catch { state.properties = []; }
 
-    log(`Joc #${state.gameId} actualizat — status: ${data.status}`, 'info');
+    if (!silent) log(`Joc #${state.gameId} actualizat — status: ${data.status}`, 'info');
     onGameLoaded();
     renderTrades(); // ✅ apelează după ce ai datele
     renderProperties();
+    renderChat();
     renderGames();
   } catch(e) {
-    log(`Eroare încărcare joc: ${e.data?.message || e.status}`, 'error');
+    if (!silent) log(`Eroare încărcare joc: ${e.data?.message || e.status}`, 'error');
   }
 }
 async function rollDice() {
   if (!state.gameId || !state.game?.currentPlayerId) {
     log('Niciun jucător curent definit', 'error');
+    return;
+  }
+
+  if (!state.myPlayerId) {
+    log('Acest calculator nu are jucător local. Creează jocul sau alătură-te cu numele tău.', 'error');
+    return;
+  }
+
+  if (!isMyTurn()) {
+    log('Nu este tura ta. Așteaptă jucătorul curent.', 'error');
     return;
   }
 
@@ -706,10 +1114,9 @@ async function rollDice() {
 
   try {
     const data = await apiFetch('POST', `/games/${state.gameId}/turns`, {
-      playerId: state.game.currentPlayerId
+      playerId: state.myPlayerId
     });
 
-    // ✔ single source of truth
     state.currentTurnId = data.turnId;
     state.availableActions = data.availableActions || [];
     state.diceRolled = true;
@@ -720,13 +1127,13 @@ async function rollDice() {
     const tile = data.landedTile;
 
     document.getElementById('center-info').textContent =
-      `Poziție: ${data.toPosition}${tile ? ` — ${tile.name}` : ''}`;
+      `${data.message ? data.message + ' · ' : ''}Poziție: ${data.toPosition}${tile ? ` — ${tile.name}` : ''}`;
 
     document.getElementById('turn-info').innerHTML =
       `🎲 <b>${data.dice?.[0]}+${data.dice?.[1]}=${(data.dice?.[0]||0)+(data.dice?.[1]||0)}</b><br>
        Poziție: ${data.toPosition}`;
 
-    log(`${getPlayerName(state.game.currentPlayerId)} a aruncat ${data.dice?.join('+')}`, 'success');
+    log(`${getPlayerName(state.myPlayerId)} a aruncat ${data.dice?.join('+')}`, 'success');
 
     highlightCell(data.toPosition);
 
@@ -739,13 +1146,23 @@ async function rollDice() {
   } catch (e) {
     d1.textContent = '-';
     d2.textContent = '-';
-    log(`Eroare aruncare zaruri: ${e.data?.message || e.status}`, 'error');
+    log(`Eroare aruncare zaruri: ${e.data?.message || e.data?.error || e.status}`, 'error');
   }
 }
- 
+
 async function executeAction(actionType) {
   if (!state.currentTurnId) {
     log('Nu există tură activă', 'error');
+    return;
+  }
+
+  if (!state.myPlayerId) {
+    log('Acest calculator nu are jucător local.', 'error');
+    return;
+  }
+
+  if (!isMyTurn() && !['end_turn'].includes(actionType)) {
+    log('Nu este tura ta.', 'error');
     return;
   }
 
@@ -753,10 +1170,29 @@ async function executeAction(actionType) {
     const data = await apiFetch(
       'POST',
       `/games/${state.gameId}/turns/${state.currentTurnId}/actions`,
-      { actionType }
+      { actionType, playerId: state.myPlayerId }
     );
 
-    log(`Acțiune "${actionType}" executată`, 'success');
+    if (data.details?.card) {
+      alert('Carte trasă: ' + data.details.card.text);
+      log('Carte trasă: ' + data.details.card.text, 'info');
+    }
+
+    if (data.details?.bankruptcy?.bankrupt) {
+      const b = data.details.bankruptcy;
+      log(b.message || 'Jucătorul a intrat în faliment.', 'error');
+      if (b.finished && b.winnerName) {
+        alert(`Joc terminat! Câștigător: ${b.winnerName}`);
+        log(`Joc terminat. Câștigător: ${b.winnerName}`, 'success');
+      }
+    } else {
+      log(`Acțiune "${actionType}" executată`, 'success');
+    }
+
+    if (['pay_rent', 'pay_tax'].includes(actionType)) {
+      state.availableActions = ['end_turn'];
+      renderActionButtons(state.availableActions);
+    }
 
     if (actionType === 'end_turn') {
       state.currentTurnId = null;
@@ -776,11 +1212,10 @@ async function executeAction(actionType) {
     await refreshGame();
 
   } catch (e) {
-    log(`Eroare acțiune: ${e.data?.message || e.status}`, 'error');
+    log(`Eroare acțiune: ${e.data?.message || e.data?.error || e.status}`, 'error');
   }
 }
 function renderTrades() {
-  // găsește sau creează containerul
   let container = document.getElementById('trades-list');
   if (!container) {
     const section = document.createElement('div');
@@ -795,21 +1230,46 @@ function renderTrades() {
     return;
   }
 
+  const pending = state.trades.filter(t => t.status === 'pending');
+
+  if (!pending.length) {
+    container.innerHTML = '<div class="empty-state">Niciun trade pending</div>';
+    return;
+  }
+
   container.innerHTML = '';
-  state.trades.filter(t => t.status === 'pending').forEach(t => {
+  pending.forEach(t => {
+    const fromName = getPlayerName(t.fromPlayerId);
+    const toName = getPlayerName(t.toPlayerId);
+    const canRespond = t.toPlayerId === state.myPlayerId;
+    const offeredNames = formatTradeProperties(t.offeredProps);
+    const requestedNames = formatTradeProperties(t.requestedProps);
     const div = document.createElement('div');
     div.className = 'player-card';
     div.style.flexDirection = 'column';
     div.style.gap = '6px';
     div.innerHTML = `
       <div style="font-size:12px;">
-        Trade #${t.id}: jucător <b>${t.fromPlayerId}</b> → <b>${t.toPlayerId}</b>
+        Trade #${t.id}: <b>${fromName}</b> → <b>${toName}</b>
         ${t.offeredMoney ? `· €${t.offeredMoney}` : ''}
       </div>
-      <div style="display:flex;gap:6px;">
-        <button class="btn btn-primary btn-sm" onclick="respondTrade(${t.id},'accepted')">✓ Accept</button>
-        <button class="btn btn-sm" onclick="respondTrade(${t.id},'rejected')">✗ Respinge</button>
+      <div class="trade-detail-grid">
+        <div>
+          <span>${canRespond ? 'Primesti' : 'Ofera'}</span>
+          <b>${t.offeredMoney ? `M${t.offeredMoney}` : 'Fara bani'}</b>
+          <small>${offeredNames}</small>
+        </div>
+        <div>
+          <span>${canRespond ? 'Ti se cere' : 'Cere'}</span>
+          <b>${requestedNames}</b>
+        </div>
       </div>
+      ${canRespond ? `
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-primary btn-sm" onclick="respondTrade(${t.id},'accepted')">✓ Accept</button>
+          <button class="btn btn-sm" onclick="respondTrade(${t.id},'rejected')">✗ Respinge</button>
+        </div>
+      ` : '<div class="empty-state">Doar destinatarul poate răspunde.</div>'}
     `;
     container.appendChild(div);
   });
@@ -817,7 +1277,7 @@ function renderTrades() {
 
 async function respondTrade(tradeId, status) {
   try {
-    await apiFetch('PATCH', `/games/${state.gameId}/trades/${tradeId}`, { status });
+    await apiFetch('PATCH', `/games/${state.gameId}/trades/${tradeId}`, { status, playerId: state.myPlayerId });
     log(`Trade #${tradeId} ${status}`, 'success');
     await refreshGame();
   } catch(e) {
@@ -826,7 +1286,7 @@ async function respondTrade(tradeId, status) {
 }
 
 async function acceptTrade(tradeId) {
-  await apiFetch('PATCH', `/games/${state.gameId}/trades/${tradeId}`, { status: 'accepted' });
+  await apiFetch('PATCH', `/games/${state.gameId}/trades/${tradeId}`, { status: 'accepted', playerId: state.myPlayerId });
   await refreshGame();
 }
  
@@ -838,6 +1298,8 @@ function renderActionButtons(actions) {
     buy_property: 'buy',
     pay_rent: 'pay',
     pay_tax: 'pay',
+    pay_jail: 'pay',
+    draw_card: 'trade',
     end_turn: 'end',
     trade: 'trade'
   };
@@ -862,10 +1324,14 @@ function renderActionButtons(actions) {
  
 function formatAction(a) {
   const map = {
-    buy_property: '🏠 Cumpără', pay_rent: '💸 Plătește chirie',
-    pay_tax: '💸 Plătește taxă', end_turn: '⏭ Termină tura',
-    draw_card: '🃏 Carte', go_to_jail: '🔒 Închisoare',
-    pay_jail: '💳 Plătește ieșire', use_jail_card: '🃏 Carte ieșire',
+    buy_property: '🏠 Cumpără',
+    pay_rent: '💸 Plătește chirie',
+    pay_tax: '💸 Plătește taxă',
+    end_turn: '⏭ Termină tura',
+    draw_card: '🃏 Carte',
+    go_to_jail: '🔒 Închisoare',
+    pay_jail: '💳 Plătește ieșire',
+    use_jail_card: '🃏 Carte ieșire',
     trade: '🔁 Trade',
   };
   return map[a] || a;
@@ -877,7 +1343,7 @@ function highlightCell(idx) {
   if (cell) cell.classList.add('highlighted');
 }
 function clearHighlight() {
-  document.querySelectorAll('.cell.highlighted').forEach(c => c.classList.remove('highlighted'));
+  document.querySelectorAll('.cell.highlighted, .board-hotspot.highlighted').forEach(c => c.classList.remove('highlighted'));
 }
  
 function getPlayerName(id) {
@@ -889,43 +1355,153 @@ function onGameLoaded() {
   updateHeader();
   renderPlayers();
   renderGameSummary();
+  renderLocalPlayerBox();
   renderTokens();
+  maybeShowPlayerSelect();
+
   document.getElementById('game-controls').style.display = 'block';
+
   if (state.game?.status === 'active') {
     document.getElementById('turn-controls').style.display = 'block';
-    if (!state.diceRolled) {
-      document.getElementById('roll-btn').disabled = false;
-    }
+
     const cur = getPlayerName(state.game.currentPlayerId);
-    document.getElementById('turn-info').textContent = `Tura lui ${cur}`;
+    const mine = getMyPlayer();
+
+    if (!mine) {
+      document.getElementById('turn-info').textContent = `Tura lui ${cur}. Acest calculator nu are jucător local.`;
+      document.getElementById('roll-btn').disabled = true;
+      renderActionButtons([]);
+      return;
+    }
+
+    document.getElementById('turn-info').textContent = isMyTurn()
+      ? `Este tura ta (${mine.name})`
+      : `Tura lui ${cur}. Tu ești ${mine.name}.`;
+
+    document.getElementById('roll-btn').disabled = !isMyTurn() || state.diceRolled;
+
+    if (!isMyTurn()) {
+      renderActionButtons([]);
+    } else {
+      renderActionButtons(state.availableActions || []);
+    }
+  } else {
+    document.getElementById('turn-controls').style.display = 'none';
   }
 }
- 
+
 // ─── TRADE ───────────────────────────────────────────────────────────────────
-function openTradeModal() { document.getElementById('trade-modal').classList.add('open'); }
+function getOwnedProperties(playerId) {
+  return (state.properties || []).filter(p => p.ownerId === playerId);
+}
+
+function renderTradePropertyList(containerId, properties, inputName) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  if (!properties.length) {
+    container.innerHTML = '<div class="empty-state">Nicio proprietate</div>';
+    return;
+  }
+
+  container.innerHTML = properties.map(p => `
+    <label class="trade-prop-option">
+      <input type="checkbox" name="${inputName}" value="${p.tileIndex}">
+      <span>
+        <b>${escapeHtml(p.name)}</b>
+        <span>${escapeHtml(p.group || p.type)} · M${p.price || p.purchasePrice || 0}</span>
+      </span>
+    </label>
+  `).join('');
+}
+
+function renderTradePlayerOptions() {
+  const select = document.getElementById('trade-player-select');
+  if (!select) return;
+
+  const players = (state.players || []).filter(p => p.id !== state.myPlayerId && p.status === 'active');
+  select.innerHTML = players.length
+    ? players.map(p => `<option value="${p.id}">${escapeHtml(p.name)} (#${p.id})</option>`).join('')
+    : '<option value="">Niciun player disponibil</option>';
+}
+
+function renderTradePropertyPickers() {
+  const select = document.getElementById('trade-player-select');
+  const toPlayerId = parseInt(select?.value || '0', 10);
+  renderTradePropertyList('trade-offered-props', getOwnedProperties(state.myPlayerId), 'offeredPropertyIds');
+  renderTradePropertyList('trade-requested-props', getOwnedProperties(toPlayerId), 'requestedPropertyIds');
+}
+
+function selectedTradePropertyIds(inputName) {
+  return Array.from(document.querySelectorAll(`input[name="${inputName}"]:checked`))
+    .map(input => parseInt(input.value, 10))
+    .filter(Number.isFinite);
+}
+
+function getTradePropertyName(tileIndex) {
+  const property = (state.properties || []).find(p => p.tileIndex === tileIndex)
+    || TILES.find(tile => tile.i === tileIndex);
+
+  if (!property) return `#${tileIndex}`;
+
+  const group = property.group || property.color || property.type || '';
+  return `${property.name}${group ? ' (' + group + ')' : ''}`;
+}
+
+function formatTradeProperties(ids = []) {
+  if (!ids.length) return 'Fara proprietati';
+  return ids.map(id => escapeHtml(getTradePropertyName(id))).join(', ');
+}
+
+function openTradeModal() {
+  if (!state.myPlayerId) {
+    log('Nu ai jucător local setat pe acest calculator.', 'error');
+    return;
+  }
+
+  const from = document.getElementById('trade-from');
+  if (from) from.value = state.myPlayerId;
+
+  renderTradePlayerOptions();
+  renderTradePropertyPickers();
+  document.getElementById('trade-modal').classList.add('open');
+}
 function closeTradeModal() { document.getElementById('trade-modal').classList.remove('open'); }
  
 async function submitTrade() {
   if (!state.gameId) { log('Nu există joc activ', 'error'); return; }
   if (!state.game?.currentPlayerId) { log('Trade indisponibil: nu există tură activă', 'error'); return; }
 
-  const fromPlayerId = parseInt(document.getElementById('trade-from').value);
-  const toPlayerId   = parseInt(document.getElementById('trade-to').value);
+  const fromPlayerId = state.myPlayerId;
+  const toPlayerId   = parseInt(document.getElementById('trade-player-select').value);
   const offeredMoney = parseInt(document.getElementById('trade-money').value) || 0;
 
-  const requestedRaw = document.getElementById('trade-props').value || '';
-  const requestedPropertyIds = requestedRaw
-    ? requestedRaw.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n))
-    : [];
+  if (!fromPlayerId) {
+    log('Nu ai jucător local setat pe acest calculator.', 'error');
+    return;
+  }
 
+  if (!toPlayerId || toPlayerId === fromPlayerId) {
+    log('Alege un jucător valid pentru trade.', 'error');
+    return;
+  }
 
+  const offeredPropertyIds = selectedTradePropertyIds('offeredPropertyIds');
+  const requestedPropertyIds = selectedTradePropertyIds('requestedPropertyIds');
+
+  if (offeredMoney <= 0 && !offeredPropertyIds.length && !requestedPropertyIds.length) {
+    log('Alege bani sau cel putin o proprietate pentru trade.', 'error');
+    return;
+  }
 
   try {
     const data = await apiFetch('POST', `/games/${state.gameId}/trades`, {
       fromPlayerId,
       toPlayerId,
       offeredMoney,
-      requestedPropertyIds
+      offeredPropertyIds,
+      requestedPropertyIds,
+      playerId: state.myPlayerId
     });
     log(`Trade creat (ID: ${data.tradeId || data.id})`, 'success');
     closeTradeModal();
@@ -935,22 +1511,30 @@ async function submitTrade() {
   }
 }
 // ─── INIT ─────────────────────────────────────────────────────────────────────
+applyTheme();
 buildBoard();
 loadGames();
+startAutoRefresh();
  
 // Auto-load game from URL param
 const urlParams = new URLSearchParams(window.location.search);
 const gidParam = urlParams.get('game');
 if (gidParam) {
-  document.getElementById('game-id-input').value = gidParam;
+  setControlValue('game-id-input', gidParam);
   state.gameId = parseInt(gidParam);
+  state.myPlayerId = loadLocalPlayerId(state.gameId);
+  state.playerSelectDismissed = false;
   refreshGame();
 }
  
 // Keyboard: press R to roll
 document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.activeElement?.id === 'chat-message-input') {
+    sendChatMessage();
+    return;
+  }
   if (e.key === 'r' || e.key === 'R') {
-    if (!document.activeElement || document.activeElement.tagName !== 'INPUT') rollDice();
+    if ((!document.activeElement || document.activeElement.tagName !== 'INPUT') && isMyTurn()) rollDice();
   }
 });
  
@@ -959,11 +1543,10 @@ window.addEventListener('resize', renderTokens);
 
 // Initialize API base input to current origin for convenience
 window.addEventListener('DOMContentLoaded', () => {
-  const el = document.getElementById('api-base');
-  if (el && !el.value) {
-    el.value = window.location.origin;
-  }
-  loadGames();
+  controlsById('api-base').forEach(el => {
+    if (!el.value) el.value = window.location.origin;
+  });
+  loadGames(true);
 });
 
 </script>

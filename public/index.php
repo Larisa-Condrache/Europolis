@@ -107,6 +107,7 @@ $app->addErrorMiddleware(true, true, true);
 (require __DIR__ . '/../src/Routes/turns.php')($app);
 (require __DIR__ . '/../src/Routes/properties.php')($app);
 (require __DIR__ . '/../src/Routes/trades.php')($app);
+(require __DIR__ . '/../src/Routes/chat.php')($app);
 
 /* ───────────────────────────────────────── */
 $app->run();

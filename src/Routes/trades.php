@@ -82,17 +82,28 @@ return function (App $app): void {
         $gameId = (int)$args['gameId'];
         $body = json_decode((string)$request->getBody(), true) ?? [];
 
-        if (empty($body['fromPlayerId']) || empty($body['toPlayerId'])) {
+        if (empty($body['playerId']) || empty($body['fromPlayerId']) || empty($body['toPlayerId'])) {
             return $json($response, 400, [
                 'error' => 'BAD_REQUEST',
-                'message' => 'fromPlayerId si toPlayerId sunt obligatorii',
+                'message' => 'playerId, fromPlayerId si toPlayerId sunt obligatorii',
             ]);
         }
 
         $pdo = Database::getConnection();
+        $viewer = (int)$body['playerId'];
         $from = (int)$body['fromPlayerId'];
         $to = (int)$body['toPlayerId'];
         $money = (int)($body['offeredMoney'] ?? 0);
+
+        if ($viewer !== $from) {
+            return $json($response, 403, ['error' => 'NOT_YOUR_TRADE']);
+        }
+        if ($from === $to) {
+            return $json($response, 400, ['error' => 'INVALID_TRADE', 'message' => 'Nu poti face trade cu tine insuti.']);
+        }
+        if ($money < 0) {
+            return $json($response, 400, ['error' => 'INVALID_MONEY']);
+        }
 
         $checkPlayer = $pdo->prepare('SELECT id FROM players WHERE id = :id AND game_id = :gameId');
         foreach ([$from, $to] as $playerId) {
@@ -102,14 +113,14 @@ return function (App $app): void {
             }
         }
 
-        $stmt = $pdo->prepare('SELECT balance FROM players WHERE id = :id');
-        $stmt->execute(['id' => $from]);
+        $stmt = $pdo->prepare('SELECT balance FROM players WHERE id = :id AND game_id = :gameId');
+        $stmt->execute(['id' => $from, 'gameId' => $gameId]);
         if ((int)$stmt->fetchColumn() < $money) {
             return $json($response, 400, ['error' => 'INSUFFICIENT_FUNDS']);
         }
 
-        $offered = $body['offeredPropertyIds'] ?? [];
-        $requested = $body['requestedPropertyIds'] ?? [];
+        $offered = array_map('intval', $body['offeredPropertyIds'] ?? []);
+        $requested = array_map('intval', $body['requestedPropertyIds'] ?? []);
 
         $checkOwner = function (int $playerId, array $tiles) use ($pdo, $gameId): bool {
             foreach ($tiles as $tile) {
@@ -163,7 +174,11 @@ return function (App $app): void {
         $tradeId = (int)$args['tradeId'];
         $body = json_decode((string)$request->getBody(), true) ?? [];
         $status = $body['status'] ?? null;
+        $viewer = (int)($body['playerId'] ?? 0);
 
+        if (!$viewer) {
+            return $json($response, 400, ['error' => 'BAD_REQUEST', 'message' => 'playerId obligatoriu']);
+        }
         if (!in_array($status, ['accepted', 'rejected'], true)) {
             return $json($response, 400, ['error' => 'BAD_REQUEST', 'message' => 'status invalid']);
         }
@@ -175,6 +190,9 @@ return function (App $app): void {
 
         if (!$trade) {
             return $json($response, 404, ['error' => 'NOT_FOUND']);
+        }
+        if ($viewer !== (int)$trade['to_player_id']) {
+            return $json($response, 403, ['error' => 'NOT_TRADE_RECEIVER']);
         }
 
         if ($status === 'rejected') {
@@ -204,10 +222,10 @@ return function (App $app): void {
 
         if ((int)$trade['offered_money'] > 0) {
             $money = (int)$trade['offered_money'];
-            $pdo->prepare('UPDATE players SET balance = balance - :money WHERE id = :id')
-                ->execute(['money' => $money, 'id' => (int)$trade['from_player_id']]);
-            $pdo->prepare('UPDATE players SET balance = balance + :money WHERE id = :id')
-                ->execute(['money' => $money, 'id' => (int)$trade['to_player_id']]);
+            $pdo->prepare('UPDATE players SET balance = balance - :money WHERE id = :id AND game_id = :gameId')
+                ->execute(['money' => $money, 'id' => (int)$trade['from_player_id'], 'gameId' => $gameId]);
+            $pdo->prepare('UPDATE players SET balance = balance + :money WHERE id = :id AND game_id = :gameId')
+                ->execute(['money' => $money, 'id' => (int)$trade['to_player_id'], 'gameId' => $gameId]);
         }
 
         $pdo->prepare('UPDATE trades SET status = "accepted" WHERE id = :id')

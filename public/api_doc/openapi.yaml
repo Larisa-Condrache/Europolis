@@ -1,8 +1,12 @@
 openapi: 3.0.3
 info:
   title: API Europolis
-  description: Europolis Game API
-  version: 0.2.0
+  description: Europolis Game API. Specificatia include operatiile implementate in etapa curenta si extensiile planificate pentru sprintul urmator.
+  version: 0.3.0
+
+servers:
+  - url: http://localhost:8080
+    description: Server local PHP
 
 paths:
 
@@ -11,10 +15,10 @@ paths:
 # ─────────────────────────────────────────
 
   /games:
-<<<<<<< HEAD
     get:
       summary: Returneaza lista jocurilor existente
       tags: [Games]
+      x-implementation-status: implemented
       responses:
         '200':
           description: Lista jocurilor
@@ -23,12 +27,11 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Game'
-=======
->>>>>>> a4acf109e35e07ea400bf924f7d67041ddafb0be
+                  $ref: '#/components/schemas/GameListItem'
     post:
       summary: Creează un joc nou
       tags: [Games]
+      x-implementation-status: implemented
       requestBody:
         required: true
         content:
@@ -57,21 +60,13 @@ paths:
 
   /games/{gameId}:
     get:
-<<<<<<< HEAD
-      summary: Returneaza starea unui joc
-=======
       summary: Obține starea curentă a jocului
->>>>>>> a4acf109e35e07ea400bf924f7d67041ddafb0be
       tags: [Games]
       parameters:
         - $ref: '#/components/parameters/gameId'
       responses:
         '200':
-<<<<<<< HEAD
-          description: Starea jocului
-=======
           description: Starea curentă a jocului
->>>>>>> a4acf109e35e07ea400bf924f7d67041ddafb0be
           content:
             application/json:
               schema:
@@ -79,12 +74,9 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
     patch:
-<<<<<<< HEAD
-      summary: Actualizeaza statusul jocului
-=======
       summary: Modifică starea jocului (ex. pornire, finalizare)
->>>>>>> a4acf109e35e07ea400bf924f7d67041ddafb0be
       tags: [Games]
+      x-implementation-status: implemented
       parameters:
         - $ref: '#/components/parameters/gameId'
       requestBody:
@@ -93,10 +85,6 @@ paths:
           application/json:
             schema:
               type: object
-<<<<<<< HEAD
-              required: [status]
-=======
->>>>>>> a4acf109e35e07ea400bf924f7d67041ddafb0be
               properties:
                 status:
                   type: string
@@ -104,46 +92,32 @@ paths:
                   example: active
       responses:
         '200':
-<<<<<<< HEAD
-          description: Status actualizat
-=======
           description: Joc actualizat
->>>>>>> a4acf109e35e07ea400bf924f7d67041ddafb0be
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Game'
-<<<<<<< HEAD
-        '404':
-          $ref: '#/components/responses/NotFound'
-    delete:
-      summary: Sterge un joc
-      tags: [Games]
-      parameters:
-        - $ref: '#/components/parameters/gameId'
-      responses:
-        '200':
-          description: Joc sters cu succes
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: Jocul a fost sters.
-                  gameId:
-                    type: integer
-                    example: 1
-        '404':
-          $ref: '#/components/responses/NotFound'
-=======
         '400':
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Sterge un joc
+      description: Stergerea jocului elimina si jucatorii si datele dependente prin baza de date.
+      tags: [Games]
+      x-implementation-status: implemented
+      parameters:
+        - $ref: '#/components/parameters/gameId'
+      responses:
+        '200':
+          description: Joc sters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteGameResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
->>>>>>> a4acf109e35e07ea400bf924f7d67041ddafb0be
 # ─────────────────────────────────────────
 # PLAYERS
 # ─────────────────────────────────────────
@@ -226,6 +200,7 @@ paths:
   /games/{gameId}/players/{playerId}/leave:
     post:
       summary: Jucătorul iese voluntar din joc
+      x-implementation-status: planned
       description: >
         Un jucător activ poate părăsi jocul în orice moment. 
         Dacă jocul este în starea `waiting`, jucătorul este pur și simplu eliminat din listă.
@@ -485,6 +460,7 @@ paths:
     patch:
       summary: Actualizează starea unei proprietăți (ipotecare/deipotecare manuală)
       tags: [Properties]
+      x-implementation-status: planned
       parameters:
         - $ref: '#/components/parameters/gameId'
         - $ref: '#/components/parameters/propertyId'
@@ -512,10 +488,43 @@ paths:
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
 
+  /games/{gameId}/properties/{propertyId}/sell:
+    post:
+      summary: Vinde o proprietate catre banca
+      description: Jucatorul primeste jumatate din suma platita pentru proprietate.
+      tags: [Properties]
+      x-implementation-status: implemented
+      parameters:
+        - $ref: '#/components/parameters/gameId'
+        - $ref: '#/components/parameters/propertyId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [playerId]
+              properties:
+                playerId:
+                  type: integer
+                  example: 2
+      responses:
+        '200':
+          description: Proprietate vanduta catre banca
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SellPropertyResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /games/{gameId}/properties/{propertyId}/buildings:
     get:
       summary: Returnează clădirile de pe o proprietate
       tags: [Properties]
+      x-implementation-status: implemented
       parameters:
         - $ref: '#/components/parameters/gameId'
         - $ref: '#/components/parameters/propertyId'
@@ -533,6 +542,7 @@ paths:
     post:
       summary: Construiește o casă sau hotel pe o proprietate
       tags: [Properties]
+      x-implementation-status: planned
       parameters:
         - $ref: '#/components/parameters/gameId'
         - $ref: '#/components/parameters/propertyId'
@@ -566,6 +576,7 @@ paths:
     delete:
       summary: Demolează o clădire de pe o proprietate
       tags: [Properties]
+      x-implementation-status: planned
       parameters:
         - $ref: '#/components/parameters/gameId'
         - $ref: '#/components/parameters/propertyId'
@@ -706,6 +717,7 @@ paths:
     delete:
       summary: Anulează o propunere de schimb (doar inițiatorul, cât timp e pending)
       tags: [Trades]
+      x-implementation-status: planned
       parameters:
         - $ref: '#/components/parameters/gameId'
         - $ref: '#/components/parameters/tradeId'
@@ -769,6 +781,34 @@ components:
       example: 7
 
   schemas:
+
+    GameListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 10
+        status:
+          type: string
+          enum: [waiting, active, finished]
+          example: active
+        maxPlayers:
+          type: integer
+          example: 4
+        playerCount:
+          type: integer
+          example: 2
+        currentPlayerId:
+          type: integer
+          nullable: true
+          example: 2
+        currentPlayerName:
+          type: string
+          nullable: true
+          example: Mihai
+        createdAt:
+          type: string
+          example: "2026-05-20 02:06:20"
 
     Game:
       type: object
@@ -960,6 +1000,30 @@ components:
           enum: [house, hotel]
           example: house
 
+    SellPropertyResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Proprietate vanduta catre banca
+        refund:
+          type: integer
+          example: 70
+        soldProperty:
+          type: object
+          properties:
+            tileIndex:
+              type: integer
+              example: 11
+            name:
+              type: string
+              example: Sibiu
+            purchasePrice:
+              type: integer
+              example: 140
+        player:
+          $ref: '#/components/schemas/Player'
+
     Trade:
       type: object
       properties:
@@ -1034,6 +1098,16 @@ components:
           $ref: '#/components/schemas/Property'
           nullable: true
 
+    DeleteGameResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Joc sters
+        gameId:
+          type: integer
+          example: 1
+
     ErrorResponse:
       type: object
       properties:
@@ -1074,8 +1148,4 @@ components:
       content:
         application/json:
           schema:
-<<<<<<< HEAD
             $ref: '#/components/schemas/ErrorResponse'
-=======
-            $ref: '#/components/schemas/ErrorResponse'
->>>>>>> a4acf109e35e07ea400bf924f7d67041ddafb0be

@@ -7,12 +7,12 @@ namespace Europolis\Models;
 /**
  * Board — tabla de joc.
  *
- * Conține exact 40 de căsuțe aranjate circular.
+ * Conține căsuțele tablei aranjate circular.
  * (Cap. 3 — Modelul problemei, Etapa 1)
  */
 class Board
 {
-    /** @var Tile[] exact 40 de căsuțe (index 0–39) */
+    /** @var Tile[] căsuțele tablei, indexate circular */
     public array $tiles = [];
 
     /**
@@ -21,7 +21,7 @@ class Board
     public function getTile(int $position): Tile
     {
         // TODO: implementare
-        return $this->tiles[$position % 40];
+        return $this->tiles[$position % count($this->tiles)];
     }
 
     /**
